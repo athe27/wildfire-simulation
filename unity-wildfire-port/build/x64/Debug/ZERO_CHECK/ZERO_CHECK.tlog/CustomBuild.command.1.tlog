@@ -1,0 +1,10 @@
+^C:\USERS\TONYY\DOCUMENTS\SCHOOLWORK\VIP\TEST-WORK\UNITY-WILDFIRE-PORT\BUILD\CMAKEFILES\9E6B87C64FE38ECD2C30715028ACE567\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/tonyy/Documents/SchoolWork/VIP/test-work/glfw-3.4 -BC:/Users/tonyy/Documents/SchoolWork/VIP/test-work/unity-wildfire-port/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/tonyy/Documents/SchoolWork/VIP/test-work/unity-wildfire-port/build/GLFW.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
