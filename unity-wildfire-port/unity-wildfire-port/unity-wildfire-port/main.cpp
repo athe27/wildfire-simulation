@@ -136,7 +136,10 @@ int main(int argc, char* argv[])
 		// render image to quad
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		screenQuad.use();
-		screenQuad.setFloat("t", currentFrame);
+
+		//set shadertoy params
+		screenQuad.setFloat("iTime", currentFrame);
+		screenQuad.setVec3("iResolution", glm::vec3(SCR_WIDTH, SCR_HEIGHT, SCR_WIDTH / (float)SCR_HEIGHT));
 
 		renderQuad();
 
