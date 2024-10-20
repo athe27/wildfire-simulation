@@ -33,9 +33,4 @@
       <Filter>Source Files</Filter>
     </None>
   </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="ApplyAdvection.cs">
-      <Filter>Source Files</Filter>
-    </FxCompile>
-  </ItemGroup>
 </Project>

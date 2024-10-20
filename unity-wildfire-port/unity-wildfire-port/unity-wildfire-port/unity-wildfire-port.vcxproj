@@ -140,9 +140,6 @@
     <None Include="screenQuad.fs" />
     <None Include="screenQuad.vs" />
   </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="ApplyAdvection.cs" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
