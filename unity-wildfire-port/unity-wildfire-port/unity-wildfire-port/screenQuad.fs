@@ -8,8 +8,8 @@ uniform float t;
 
 void main()
 {             
-    float speed = 0.2;
-    vec3 coords = vec3(TexCoords.xy, t * speed);
+    float cycleTime = 2;
+    vec3 coords = vec3(TexCoords.xy, t * 1 / cycleTime);
     vec3 texCol = texture(tex, coords).rgb;      
     FragColor = vec4(texCol, 1.0);
 }
