@@ -20,7 +20,7 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
 // texture size
-const unsigned int TEXTURE_WIDTH = 128, TEXTURE_HEIGHT = 128, TEXTURE_DEPTH = 128;
+const unsigned int BOX_N = 128;
 
 // timing 
 float deltaTime = 0.0f; // time between current frame and last frame
@@ -90,9 +90,10 @@ int main(int argc, char* argv[])
 
 	screenQuad.use();
 	screenQuad.setInt("tex", 0);
+	screenQuad.setInt("BOX_N", BOX_N);
 
 	computeShader.use();
-	computeShader.setInt("TEXTURE_DEPTH", TEXTURE_DEPTH);
+	computeShader.setInt("BOX_N", BOX_N);
 
 	// Create texture for opengl operation
 	// -----------------------------------
@@ -106,7 +107,7 @@ int main(int argc, char* argv[])
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, TEXTURE_WIDTH, TEXTURE_HEIGHT, TEXTURE_DEPTH * 2 + 1, 0, GL_RGBA, GL_FLOAT, NULL);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, BOX_N, BOX_N, BOX_N * 2 + 1, 0, GL_RGBA, GL_FLOAT, NULL);
 
 	glBindImageTexture(0, texture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
 
@@ -130,7 +131,7 @@ int main(int argc, char* argv[])
 		computeShader.use();
 		computeShader.setFloat("iTime", currentFrame);
 
-		glDispatchCompute(TEXTURE_WIDTH, TEXTURE_HEIGHT, TEXTURE_DEPTH * 2 + 1);
+		glDispatchCompute(BOX_N, BOX_N, BOX_N * 2 + 1);
 
 		// make sure writing to image has finished before read
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -141,7 +142,10 @@ int main(int argc, char* argv[])
 
 		//set shadertoy params
 		screenQuad.setFloat("iTime", currentFrame);
-		screenQuad.setVec3("iResolution", glm::vec3(SCR_WIDTH, SCR_HEIGHT, SCR_WIDTH / (float)SCR_HEIGHT));
+
+		int width, height;
+		glfwGetWindowSize(window, &width, &height);
+		screenQuad.setVec3("iResolution", glm::vec3(width, height, width / (float) height));
 
 		renderQuad();
 

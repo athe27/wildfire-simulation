@@ -3,6 +3,7 @@ out vec4 FragColor;
 
 in vec2 TexCoords;
 
+uniform int BOX_N;
 uniform sampler3D tex;
 uniform float iTime;
 uniform vec3 iResolution; // x: width, y: height, z: aspect ratio
@@ -16,7 +17,6 @@ uniform vec3 iResolution; // x: width, y: height, z: aspect ratio
 #define BOX_MAX vec3(1.0)
 
 #define EPS 0.001
-#define BOX_N 128.0
 
 mat4 getClipToWorld(float aspectWoverH, vec3 nvCamFw) {
     mat4 clipToEye = mat4(

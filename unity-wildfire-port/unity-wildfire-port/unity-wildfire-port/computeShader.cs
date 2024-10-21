@@ -10,7 +10,7 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 layout(rgba32f, binding = 0) uniform image3D imgOutput;
 
-layout(location = 0) uniform int TEXTURE_DEPTH;
+layout(location = 0) uniform int BOX_N;
 layout(location = 1) uniform float iTime;
 
 // Constants
@@ -19,7 +19,6 @@ const float VISCOSITY = 0.15;
 const float TIME_STEP = 0.1;
 const float MAX_VELOCITY = 10.0;
 const float K_CONST = 0.3;
-const float BOX_N = 128;
 const float VORTICITY_COEFF = 1.0;
 
 // ----------------------------------------------------------------------------
@@ -37,7 +36,7 @@ vec4 getDataNearest(vec3 voxelCoord)
 vec3 getCurlNearest(vec3 voxelCoord)
 {
     ivec3 floorVoxelCoord = ivec3(voxelCoord);
-    return imageLoad(imgOutput, floorVoxelCoord + ivec3(0, 0, TEXTURE_DEPTH + 1)).xyz;
+    return imageLoad(imgOutput, floorVoxelCoord + ivec3(0, 0, BOX_N + 1)).xyz;
 }
 
 vec4 getDataInterp(vec3 lmn)
@@ -162,10 +161,10 @@ void main()
 {
     vec4 value = vec4(0.0, 0.0, 0.0, 1.0);
     ivec3 voxelCoord = ivec3(gl_GlobalInvocationID);
-    if (voxelCoord.z > TEXTURE_DEPTH)
+    if (voxelCoord.z > BOX_N)
     {
-        doPage2(value, voxelCoord - vec3(0.0, 0.0, TEXTURE_DEPTH));
-    } else if (voxelCoord.z < TEXTURE_DEPTH)
+        doPage2(value, voxelCoord - vec3(0.0, 0.0, BOX_N));
+    } else if (voxelCoord.z < BOX_N)
     {
         doPage1(value, voxelCoord);
     }
