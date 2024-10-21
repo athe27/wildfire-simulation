@@ -121,8 +121,6 @@ void march(
 
         vec3 cbase = colormapInferno( normalizedVorticity );
         float calpha = pow(normalizedSpeed, 3.0);
-        //vec3 cbase = colormapInferno( normalizedSpeed );
-        //float calpha = pow(normalizedDensity, 3.0);
 
         vec4 ci = vec4(cbase, 1.0)*calpha;
 
