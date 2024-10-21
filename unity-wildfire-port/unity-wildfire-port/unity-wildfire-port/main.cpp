@@ -106,12 +106,9 @@ int main(int argc, char* argv[])
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, TEXTURE_WIDTH, TEXTURE_HEIGHT, TEXTURE_DEPTH * 2, 0, GL_RGBA, GL_FLOAT, NULL);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, TEXTURE_WIDTH, TEXTURE_HEIGHT, TEXTURE_DEPTH * 2 + 1, 0, GL_RGBA, GL_FLOAT, NULL);
 
 	glBindImageTexture(0, texture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
-
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_3D, texture);
 
 	// render loop
 	// -----------
@@ -133,7 +130,7 @@ int main(int argc, char* argv[])
 		computeShader.use();
 		computeShader.setFloat("iTime", currentFrame);
 
-		glDispatchCompute(TEXTURE_WIDTH, TEXTURE_HEIGHT, TEXTURE_DEPTH);
+		glDispatchCompute(TEXTURE_WIDTH, TEXTURE_HEIGHT, TEXTURE_DEPTH * 2 + 1);
 
 		// make sure writing to image has finished before read
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);

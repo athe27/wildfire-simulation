@@ -65,12 +65,12 @@ vec3 lmnFromWorldPos(vec3 p) {
 }
 
 vec4 readLMN(vec3 lmn) {
-    vec3 texCoords = lmn / vec3(BOX_N, BOX_N, 2 * BOX_N);
+    vec3 texCoords = lmn / vec3(BOX_N, BOX_N, 2 * BOX_N + 1);
     return texture(tex, texCoords);
 }
 
 vec3 readCurlAtLMN(vec3 lmn) {
-    vec3 texCoords = (lmn + vec3(0.0, 0.0, BOX_N)) / vec3(BOX_N, BOX_N, 2 * BOX_N);
+    vec3 texCoords = (lmn + vec3(0.0, 0.0, BOX_N + 1)) / vec3(BOX_N, BOX_N, 2 * BOX_N + 1);
     return texture(tex, texCoords).xyz;
 }
 
@@ -119,10 +119,10 @@ void march(
         float normalizedSpeed = pow(unmix(0.0, 10.0, length(data.xyz)), 0.5);
         float normalizedVorticity = clamp(pow(length(curlV),0.5), 0.0, 1.0);
 
-        //vec3 cbase = colormapInferno( normalizedVorticity );
-        //float calpha = pow(normalizedSpeed, 3.0);
-        vec3 cbase = colormapInferno( normalizedSpeed );
-        float calpha = pow(normalizedDensity, 3.0);
+        vec3 cbase = colormapInferno( normalizedVorticity );
+        float calpha = pow(normalizedSpeed, 3.0);
+        //vec3 cbase = colormapInferno( normalizedSpeed );
+        //float calpha = pow(normalizedDensity, 3.0);
 
         vec4 ci = vec4(cbase, 1.0)*calpha;
 
@@ -153,7 +153,11 @@ void main()
 {             
     vec2 uv = TexCoords;
 
-    vec3 camPos = vec3(0.0, 0.0, -3.0);
+    vec2 mouseAng = vec2(-iTime*0.27, 0.5*3.14159 + 0.6*sin(iTime*0.21));
+    vec3 camPos = 3.5 * (
+        sin(mouseAng.y) * vec3(cos(2.0*mouseAng.x), 0.0, sin(2.0*mouseAng.x)) +
+        cos(mouseAng.y) * vec3(0.0, 1.0, 0.0)
+    );
     vec3 lookTarget = vec3(0.0);
 
  	vec3 nvCamFw = normalize(lookTarget - camPos);

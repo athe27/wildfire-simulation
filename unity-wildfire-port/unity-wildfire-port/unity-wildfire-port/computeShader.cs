@@ -37,7 +37,7 @@ vec4 getDataNearest(vec3 voxelCoord)
 vec3 getCurlNearest(vec3 voxelCoord)
 {
     ivec3 floorVoxelCoord = ivec3(voxelCoord);
-    return imageLoad(imgOutput, floorVoxelCoord + ivec3(0, 0, TEXTURE_DEPTH)).xyz;
+    return imageLoad(imgOutput, floorVoxelCoord + ivec3(0, 0, TEXTURE_DEPTH + 1)).xyz;
 }
 
 vec4 getDataInterp(vec3 lmn)
@@ -162,10 +162,10 @@ void main()
 {
     vec4 value = vec4(0.0, 0.0, 0.0, 1.0);
     ivec3 voxelCoord = ivec3(gl_GlobalInvocationID);
-    if (voxelCoord.z >= TEXTURE_DEPTH)
+    if (voxelCoord.z > TEXTURE_DEPTH)
     {
         doPage2(value, voxelCoord - vec3(0.0, 0.0, TEXTURE_DEPTH));
-    } else
+    } else if (voxelCoord.z < TEXTURE_DEPTH)
     {
         doPage1(value, voxelCoord);
     }
