@@ -85,12 +85,16 @@ float unmix(float a, float b, float x) {
     return (x - a)/(b - a);
 }
 
-vec3 colormapInferno(float t) {
-    return vec3(
+vec3 colormapInferno(float t, float h) {
+    float value = pow(t, 1.0 + h * 10.0);
+    vec3 target = vec3(0.05, 0.1, 0.2);
+    return smoothstep(vec3(0.0), target, vec3(value));
+
+    return clamp(vec3(
         1.0 - (t - 1.0)*(t - 1.0),
         t*t,
         t * (3.0*t - 2.0)*(3.0*t - 2.0)
-    );
+    ) * 0.5 * vec3(3., 1.5, 1.1), 0, 1);
 }
 
 void march(
@@ -119,8 +123,10 @@ void march(
         float normalizedSpeed = pow(unmix(0.0, 10.0, length(data.xyz)), 0.5);
         float normalizedVorticity = clamp(pow(length(curlV),0.5), 0.0, 1.0);
 
-        vec3 cbase = colormapInferno( normalizedVorticity );
-        float calpha = pow(normalizedSpeed, 3.0);
+        float normalizedTemperature = 0.5 * normalizedSpeed + 0.5 * normalizedVorticity;
+        vec3 cbase = colormapInferno( normalizedTemperature, 1 -(lmn.y / BOX_N) );
+        float calpha = pow(normalizedSpeed, 3.0) * .2;
+        //vec3 fireColor = mix(vec3(normalizedSpeed), cbase, normalizedSpeed);
 
         vec4 ci = vec4(cbase, 1.0)*calpha;
 
@@ -140,7 +146,7 @@ void march(
             color.rgb + (1.0-color.a)*ci.rgb,
             color.a + ci.a - color.a*ci.a
         );
-
+        
         // Move up to next voxel
         t = curTRange.t;
         if (t+EPS > tRange.t || color.a > 1.0) { break; }
@@ -151,11 +157,7 @@ void main()
 {             
     vec2 uv = TexCoords;
 
-    vec2 mouseAng = vec2(-iTime*0.27, 0.5*3.14159 + 0.6*sin(iTime*0.21));
-    vec3 camPos = 3.5 * (
-        sin(mouseAng.y) * vec3(cos(2.0*mouseAng.x), 0.0, sin(2.0*mouseAng.x)) +
-        cos(mouseAng.y) * vec3(0.0, 1.0, 0.0)
-    );
+    vec3 camPos = vec3(0, 0, 3);
     vec3 lookTarget = vec3(0.0);
 
  	vec3 nvCamFw = normalize(lookTarget - camPos);
