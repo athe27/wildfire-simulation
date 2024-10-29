@@ -132,13 +132,28 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="FireFluidSim.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="applyAdvection.cs" />
+    <None Include="applyBuoyancy.cs" />
+    <None Include="applyImpulse.cs" />
+    <None Include="common.glsl" />
+    <None Include="computeConfinement.cs" />
+    <None Include="computeDivergence.cs" />
+    <None Include="computeJacobi.cs" />
+    <None Include="computeObstacles.cs" />
+    <None Include="computeProjection.cs" />
     <None Include="computeShader.cs" />
+    <None Include="computeVorticity.cs" />
     <None Include="screenQuad.fs" />
     <None Include="screenQuad.vs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="FireFluidSim.h" />
+    <ClInclude Include="Utilities.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -21,6 +21,9 @@
     <ClCompile Include="glad.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="FireFluidSim.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="computeShader.cs">
@@ -32,5 +35,23 @@
     <None Include="screenQuad.fs">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="applyAdvection.cs" />
+    <None Include="applyBuoyancy.cs" />
+    <None Include="applyImpulse.cs" />
+    <None Include="common.glsl" />
+    <None Include="computeConfinement.cs" />
+    <None Include="computeDivergence.cs" />
+    <None Include="computeJacobi.cs" />
+    <None Include="computeObstacles.cs" />
+    <None Include="computeProjection.cs" />
+    <None Include="computeVorticity.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="FireFluidSim.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Utilities.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
