@@ -1,4 +1,27 @@
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+
+#include <learnopengl/shader_m.h>
+#include <learnopengl/shader_c.h>
+#include <learnopengl/camera.h>
+
+#include <iostream>
+
 #include "FireFluidSim.h"
+
+
+FireFluidSimulator::FireFluidSimulator()
+{
+}
+
+FireFluidSimulator::~FireFluidSimulator()
+{
+}
 
 void FireFluidSimulator::Start() {
 	m_width = MathUtilities::ClosestPowerOfTwo(m_width);
@@ -9,6 +32,7 @@ void FireFluidSimulator::Start() {
 	// dimension sizes during play
 	//m_size = new Vector4(m_width, m_height, m_depth, 0.0f);
 
+	m_size = glm::vec4(m_width, m_height, m_depth, 0.f);
 	int SIZE = m_width * m_height * m_depth;
 
 	//m_density = new ComputeBuffer[2];
@@ -38,6 +62,8 @@ void FireFluidSimulator::Start() {
 	//m_obstacles = new ComputeBuffer(SIZE, sizeof(float));
 
 	//m_temp3f = new ComputeBuffer(SIZE, sizeof(float) * 3);
+
+	ComputeObstacles();
 }
 
 void FireFluidSimulator::Update(float DeltaTime)
@@ -87,12 +113,25 @@ void FireFluidSimulator::Update(float DeltaTime)
 	// This computes the pressure need return the fluid to a divergence free condition
 	ComputePressure();
 
-	// Subtract the pressure field from the velocity field enforcing the divergence free conditions
+	// Subtract the pressure field from the velogcity field enforcing the divergence free conditions
 	ComputeProjection();
 }
 
 void FireFluidSimulator::ComputeObstacles()
 {
+	// Original Unity Implementation:
+	//m_computeObstacles.SetVector("_Size", m_size);
+	//m_computeObstacles.SetBuffer(0, "_Write", m_obstacles);
+	//m_computeObstacles.Dispatch(0, (int)m_size.x / NUM_THREADS, (int)m_size.y / NUM_THREADS, (int)m_size.z / NUM_THREADS);
+
+	ComputeShader computeObstaclesShader("computeObstacles.cs");
+	computeObstaclesShader.use();
+
+	// Actually set the parameters for the computeObstacles shader object.
+	computeObstaclesShader.setVec4("_Size", glm::vec4(m_width, m_height, m_depth, 0.0f));
+	// ToDo: Set the actual obstacles buffer data so we can write to it.
+	glDispatchCompute((int)m_size.x / NUM_THREADS, (int)m_size.y / NUM_THREADS, (int)m_size.z / NUM_THREADS);
+	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
 
 void FireFluidSimulator::ApplyImpulse(float deltaTime, float amount)

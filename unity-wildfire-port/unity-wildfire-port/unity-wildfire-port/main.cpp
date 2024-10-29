@@ -11,6 +11,7 @@
 #include <learnopengl/camera.h>
 
 #include <iostream>
+#include "FireFluidSim.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void renderQuad();
@@ -111,6 +112,12 @@ int main(int argc, char* argv[])
 
 	glBindImageTexture(0, texture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
 
+	// Set Up Fire Fluid Simulator
+	// -----------------------------------
+	FireFluidSimulator* FireSimulator = new FireFluidSimulator();
+	FireSimulator->Start();
+	// ToDo: Call the update on the render loop tick before rendering happens.
+	 
 	// render loop
 	// -----------
 	int fCounter = 0;

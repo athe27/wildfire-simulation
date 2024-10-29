@@ -1,5 +1,4 @@
 #include "Utilities.h"
-#include <vector>
 
 class FireFluidSimulator
 {
@@ -38,9 +37,7 @@ public:
 	float m_velocityDissipation = 0.995f;
 	float m_inputRadius = 0.04f;
 
-	Vector4* m_inputPos = new Vector4(0.5f, 0.1f, 0.5f, 0.0f);
-
-	//std::vector m_obstacles = new std::vector();
+	glm::vec4 m_size;
 
 	float m_ambientTemperature = 0.f;
 
@@ -71,11 +68,3 @@ private:
 	void ComputeProjection();
 
 };
-
-FireFluidSimulator::FireFluidSimulator()
-{
-}
-
-FireFluidSimulator::~FireFluidSimulator()
-{
-}

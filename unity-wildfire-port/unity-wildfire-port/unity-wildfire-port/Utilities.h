@@ -1,36 +1,5 @@
 #include <cstdint>
 
-class Vector4
-{
-public:
-	Vector4();
-	Vector4(float inX, float inY, float inZ, float inW);
-	~Vector4() {}
-
-	float X;
-	float Y;
-	float Z;
-	float W;
-
-private:
-
-};
-
-Vector4::Vector4()
-{
-	this->X = 0.f;
-	this->Y = 0.f;
-	this->Z = 0.f;
-	this->W = 0.f;
-}
-
-Vector4::Vector4(float inX, float inY, float inZ, float inW) {
-	this->X = inX;
-	this->Y = inY;
-	this->Z = inZ;
-	this->W = inW;
-}
-
 enum class EAdvectionType : uint8_t {
 	NORMAL = 1,
 	BFECC = 2,

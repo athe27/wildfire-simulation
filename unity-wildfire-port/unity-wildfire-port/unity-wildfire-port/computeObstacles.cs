@@ -9,7 +9,7 @@ layout(rw) buffer WriteBuffer
     float _Write []; // RWStructuredBuffer equivalent
 };
 
-void CSMain()
+void main()
 {
     // Get the global invocation ID
     ivec3 id = ivec3(gl_GlobalInvocationID);

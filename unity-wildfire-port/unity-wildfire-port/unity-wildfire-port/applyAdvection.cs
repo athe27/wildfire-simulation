@@ -237,5 +237,3 @@ void AdvectMacCormack()
 
     _Write1f[idx] = max(0, r * _Dissipate - _Decay);
 }
-
-// You will need to dispatch these compute shaders with appropriate arguments in your OpenGL application.
