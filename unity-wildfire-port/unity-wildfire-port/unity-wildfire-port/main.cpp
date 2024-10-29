@@ -116,7 +116,6 @@ int main(int argc, char* argv[])
 	// -----------------------------------
 	FireFluidSimulator* FireSimulator = new FireFluidSimulator();
 	FireSimulator->Start();
-	// ToDo: Call the update on the render loop tick before rendering happens.
 	 
 	// render loop
 	// -----------
@@ -134,6 +133,8 @@ int main(int argc, char* argv[])
 		else {
 			fCounter++;
 		}
+
+		FireSimulator->Update(deltaTime);
 
 		computeShader.use();
 		computeShader.setFloat("iTime", currentFrame);

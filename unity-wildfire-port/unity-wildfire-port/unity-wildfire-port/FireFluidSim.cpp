@@ -14,13 +14,32 @@
 
 #include "FireFluidSim.h"
 
+FireFluidSimulator::FireFluidSimulator() {}
+FireFluidSimulator::~FireFluidSimulator() {}
 
-FireFluidSimulator::FireFluidSimulator()
-{
+void FireFluidSimulator::InitializeSSBO(GLuint& ssbo, size_t size, void* data, GLuint bindingPoint) {
+	glGenBuffers(1, &ssbo);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, GL_DYNAMIC_COPY);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, ssbo); // Binding to the specified point
 }
 
-FireFluidSimulator::~FireFluidSimulator()
-{
+void FireFluidSimulator::InitAllBuffers() {
+	int NUM_ELEMENTS = m_width * m_height * m_depth;
+	//InitializeSSBO(m_density, sizeof(glm::vec4) * NUM_ELEMENTS, initialDensityData, 0); // Binding Point 0
+	//InitializeSSBO(m_velocity, sizeof(glm::vec4) * NUM_ELEMENTS, initialVelocityData, 1); // Binding Point 1
+	//InitializeSSBO(m_pressure, sizeof(float) * NUM_ELEMENTS, initialPressureData, 2); // Binding Point 2
+	//InitializeSSBO(m_temperature, sizeof(float) * NUM_ELEMENTS, initialTemperatureData, 3); // Binding Point 3
+	//InitializeSSBO(m_phi, sizeof(glm::vec4) * NUM_ELEMENTS, initialPhiData, 4); // Binding Point 4
+	//InitializeSSBO(m_reaction, sizeof(float) * NUM_ELEMENTS, initialReactionData, 5); // Binding Point 5
+
+	//// For single-purpose buffers
+	//InitializeSSBO(m_temp3f, sizeof(glm::vec4) * NUM_ELEMENTS, initialTemp3fData, 6); // Binding Point 6
+
+
+	//InitializeSSBO(m_obstacles, sizeof(float) * NUM_ELEMENTS, initialObstaclesData, 7); // Binding Point 7
+	float initialObstacleData = 0.f;
+	InitializeSSBO(m_obstacles, sizeof(float), &initialObstacleData, 1); // Binding Point 7
 }
 
 void FireFluidSimulator::Start() {
@@ -28,41 +47,10 @@ void FireFluidSimulator::Start() {
 	m_height = MathUtilities::ClosestPowerOfTwo(m_height);
 	m_depth = MathUtilities::ClosestPowerOfTwo(m_depth);
 
-	// Put all dimension sizes in a vector for easy parsing to shader and also prevents user changing
-	// dimension sizes during play
-	//m_size = new Vector4(m_width, m_height, m_depth, 0.0f);
-
+	// Put all dimension sizes in a vector for easy parsing.
 	m_size = glm::vec4(m_width, m_height, m_depth, 0.f);
-	int SIZE = m_width * m_height * m_depth;
 
-	//m_density = new ComputeBuffer[2];
-	//m_density[READ] = new ComputeBuffer(SIZE, sizeof(float));
-	//m_density[WRITE] = new ComputeBuffer(SIZE, sizeof(float));
-
-	//m_temperature = new ComputeBuffer[2];
-	//m_temperature[READ] = new ComputeBuffer(SIZE, sizeof(float));
-	//m_temperature[WRITE] = new ComputeBuffer(SIZE, sizeof(float));
-
-	//m_reaction = new ComputeBuffer[2];
-	//m_reaction[READ] = new ComputeBuffer(SIZE, sizeof(float));
-	//m_reaction[WRITE] = new ComputeBuffer(SIZE, sizeof(float));
-
-	//m_phi = new ComputeBuffer[2];
-	//m_phi[READ] = new ComputeBuffer(SIZE, sizeof(float));
-	//m_phi[WRITE] = new ComputeBuffer(SIZE, sizeof(float));
-
-	//m_velocity = new ComputeBuffer[2];
-	//m_velocity[READ] = new ComputeBuffer(SIZE, sizeof(float) * 3);
-	//m_velocity[WRITE] = new ComputeBuffer(SIZE, sizeof(float) * 3);
-
-	//m_pressure = new ComputeBuffer[2];
-	//m_pressure[READ] = new ComputeBuffer(SIZE, sizeof(float));
-	//m_pressure[WRITE] = new ComputeBuffer(SIZE, sizeof(float));
-
-	//m_obstacles = new ComputeBuffer(SIZE, sizeof(float));
-
-	//m_temp3f = new ComputeBuffer(SIZE, sizeof(float) * 3);
-
+	InitAllBuffers();
 	ComputeObstacles();
 }
 
@@ -129,6 +117,7 @@ void FireFluidSimulator::ComputeObstacles()
 
 	// Actually set the parameters for the computeObstacles shader object.
 	computeObstaclesShader.setVec4("_Size", glm::vec4(m_width, m_height, m_depth, 0.0f));
+
 	// ToDo: Set the actual obstacles buffer data so we can write to it.
 	glDispatchCompute((int)m_size.x / NUM_THREADS, (int)m_size.y / NUM_THREADS, (int)m_size.z / NUM_THREADS);
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);

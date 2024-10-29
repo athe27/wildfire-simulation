@@ -49,10 +49,17 @@ public:
 	//ComputeBuffer[] m_density, m_velocity, m_pressure, m_temperature, m_phi, m_reaction;
 	//ComputeBuffer m_temp3f, m_obstacles;
 
+	//SSBOs (replaces ComputeBuffer in Unity)
+	GLuint m_density, m_velocity, m_pressure, m_temperature, m_phi, m_reaction;
+	GLuint m_temp3f, m_obstacles;
+
 	void Start();
 	void Update(float DeltaTime);
 
 private:
+
+	void InitAllBuffers();
+	void InitializeSSBO(GLuint& ssbo, size_t size, void* data, GLuint bindingPoint);
 
 	void ComputeObstacles();
 	void ApplyImpulse(float deltaTime, float amount);
