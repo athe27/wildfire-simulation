@@ -1,4 +1,75 @@
 #include "FireFluidSim.h"
+#include <learnopengl/shader_m.h>
+#include <learnopengl/shader_c.h>
+#include <learnopengl/camera.h>
+
+//----CONSTANTS----
+const int READ = 0;
+const int WRITE = 0;
+const int PHI_N_HAT = 0;
+const int PHI_N_1_HAT = 1;
+//-----------------
+
+enum ADVECTION { NORMAL = 1, BFECC = 2, MACCORMACK = 3 };
+const int NUM_THREADS = 8;
+
+//You can change this or even use Time.DeltaTime but large time steps can cause numerical errors
+const float TIME_STEP = 0.1f;
+
+//----SIM. CONSTANTS----
+enum ADVECTION m_denstyAdvectionType = NORMAL;
+enum ADVECTION m_reactionAdvectionType = NORMAL;
+int m_width = 128;
+int m_height = 128;
+int m_depth = 128;
+int m_iterations = 10;
+float m_vorticityStrength = 1.0f;
+float m_densityAmount = 1.0f;
+float m_densityDissipation = 0.999f;
+float m_densityBuoyancy = 1.0f;
+float m_densityWeight = 0.0125f;
+float m_temperatureAmount = 10.0f;
+float m_temperatureDissipation = 0.995f;
+float m_reactionAmount = 1.0f;
+float m_reactionDecay = 0.001f;
+float m_reactionExtinguishment = 0.01f;
+float m_velocityDissipation = 0.995f;
+float m_inputRadius = 0.04f;
+Vector4 m_inputPos = Vector4(0.5f, 0.1f, 0.5f, 0.0f);
+//----------------------
+
+float m_ambientTemperature = 0.0f;
+ComputeShader m_applyImpulse, m_applyAdvect, m_computeVorticity;
+ComputeShader m_computeDivergence, m_computeJacobi, m_computeProjection;
+ComputeShader m_computeConfinement, m_computeObstacles, m_applyBuoyancy;
+
+Vector4 m_size;
+
+//SSBOs (replaces ComputeBuffer in Unity)
+GLuint m_density, m_velocity, m_pressure, m_temperature, m_phi, m_reaction;
+GLuint m_temp3f, m_obstacles;
+
+void InitializeSSBO(GLuint& ssbo, size_t size, void* data, GLuint bindingPoint) {
+	glGenBuffers(1, &ssbo);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, GL_DYNAMIC_COPY);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, ssbo); // Binding to the specified point
+}
+
+void InitAllBuffers() {
+	int NUM_ELEMENTS = m_width * m_height * m_depth;
+	InitializeSSBO(m_density, sizeof(Vector4) * NUM_ELEMENTS, initialDensityData, 0); // Binding Point 0
+	InitializeSSBO(m_velocity, sizeof(Vector4) * NUM_ELEMENTS, initialVelocityData, 1); // Binding Point 1
+	InitializeSSBO(m_pressure, sizeof(float) * NUM_ELEMENTS, initialPressureData, 2); // Binding Point 2
+	InitializeSSBO(m_temperature, sizeof(float) * NUM_ELEMENTS, initialTemperatureData, 3); // Binding Point 3
+	InitializeSSBO(m_phi, sizeof(Vector4) * NUM_ELEMENTS, initialPhiData, 4); // Binding Point 4
+	InitializeSSBO(m_reaction, sizeof(float) * NUM_ELEMENTS, initialReactionData, 5); // Binding Point 5
+
+	// For single-purpose buffers
+	InitializeSSBO(m_temp3f, sizeof(Vector4) * NUM_ELEMENTS, initialTemp3fData, 6); // Binding Point 6
+	InitializeSSBO(m_obstacles, sizeof(Vector4) * NUM_ELEMENTS, initialObstaclesData, 7); // Binding Point 7
+}
+
 
 void FireFluidSimulator::Start() {
 	m_width = MathUtilities::ClosestPowerOfTwo(m_width);
