@@ -3,7 +3,7 @@ out vec4 FragColor;
 
 in vec2 TexCoords;
 
-uniform int BOX_N;
+uniform vec3 m_size;
 uniform sampler3D velocityDensityTexture;
 uniform sampler3D pressureTempPhiReactionTexture;
 uniform sampler3D curlObstaclesTexture;
@@ -15,8 +15,8 @@ uniform vec3 iResolution; // x: width, y: height, z: aspect ratio
 #define CAM_Z_NEAR 0.1
 #define CAM_Z_FAR 50.0
 
-#define BOX_MIN vec3(-1.0)
-#define BOX_MAX vec3(1.0)
+#define BOX_MIN vec3(-0.5, -1, -0.5)
+#define BOX_MAX vec3(0.5, 1, 0.5)
 
 #define EPS 0.001
 
@@ -63,31 +63,31 @@ void boxClip(
 
 vec3 lmnFromWorldPos(vec3 p) {
     vec3 uvw = (p - BOX_MIN) / (BOX_MAX - BOX_MIN);
-    return (uvw * vec3(BOX_N));
+    return (uvw * m_size);
 }
 
 vec4 readVelocityDensity(vec3 voxelCoords)
 {
-    vec3 texCoords = voxelCoords / vec3(BOX_N);
+    vec3 texCoords = voxelCoords / m_size;
     return texture(velocityDensityTexture, texCoords);
 }
 
 vec4 readPressureTempPhiReaction(vec3 voxelCoords)
 {
-    vec3 texCoords = voxelCoords / vec3(BOX_N);
+    vec3 texCoords = voxelCoords / m_size;
     return texture(pressureTempPhiReactionTexture, texCoords);
 }
 
 vec4 readCurlObstacles(vec3 voxelCoords)
 {
-    vec3 texCoords = voxelCoords / vec3(BOX_N);
+    vec3 texCoords = voxelCoords / m_size;
     return texture(curlObstaclesTexture, texCoords);
 }
 
 void boxFromLMN(in vec3 lmn, out vec3 boxMin, out vec3 boxMax) {
-    vec3 boxSize = (BOX_MAX - BOX_MIN) / BOX_N;
+    vec3 boxSize = (BOX_MAX - BOX_MIN) / m_size;
 
-    boxMin = BOX_MIN + (floor(lmn)/BOX_N) * (BOX_MAX - BOX_MIN);
+    boxMin = BOX_MIN + (floor(lmn)/m_size) * (BOX_MAX - BOX_MIN);
     boxMax = boxMin + boxSize;
 }
 
@@ -141,7 +141,7 @@ void march(
         float normalizedVorticity = clamp(pow(length(curlV),0.5), 0.0, 1.0);
 
         float normalizedTemperature = 0.5 * normalizedSpeed + 0.5 * normalizedVorticity;
-        vec3 cbase = colormapInferno( normalizedTemperature, 1 -(lmn.y / BOX_N) );
+        vec3 cbase = colormapInferno( normalizedTemperature, 1 -(lmn.y / m_size.y) );
         float calpha = pow(normalizedSpeed, 3.0) * .2;
         //vec3 fireColor = mix(vec3(normalizedSpeed), cbase, normalizedSpeed);
 
@@ -225,13 +225,13 @@ void main()
 {             
     vec2 uv = TexCoords;
 
-    vec2 mouseAng = vec2(-iTime*0.27, 0.5*3.14159 + 0.6*sin(iTime*0.21));
-    vec3 camPos = 2.5 * (
-        sin(mouseAng.y) * vec3(cos(2.0*mouseAng.x), 0.0, sin(2.0*mouseAng.x)) +
-        cos(mouseAng.y) * vec3(0.0, 1.0, 0.0)
-    );
+    //vec2 mouseAng = vec2(-iTime*0.27, 0.5*3.14159 + 0.6*sin(iTime*0.21));
+    //vec3 camPos = 2.5 * (
+    //    sin(mouseAng.y) * vec3(cos(2.0*mouseAng.x), 0.0, sin(2.0*mouseAng.x)) +
+    //    cos(mouseAng.y) * vec3(0.0, 1.0, 0.0)
+    //);
 
-    //vec3 camPos = vec3(0, 0, 3);
+    vec3 camPos = vec3(0, 0, 3);
     vec3 lookTarget = vec3(0.0);
 
  	vec3 nvCamFw = normalize(lookTarget - camPos);

@@ -12,9 +12,9 @@ layout(rgba32f, binding = 0) uniform image3D velocityDensityTexture;
 layout(rgba32f, binding = 1) uniform image3D pressureTempPhiReactionTexture;
 layout(rgba32f, binding = 2) uniform image3D curlObstaclesTexture;
 
-layout(location = 0) uniform int BOX_N;
-layout(location = 1) uniform float iTime;
+layout(location = 0) uniform float iTime;
 
+uniform vec3 m_size;
 uniform int m_iterations;
 uniform float dt;
 uniform float m_vorticityStrength;
@@ -64,7 +64,7 @@ void ComputeObstacles(vec3 voxelCoord, inout vec4 curlObstaclesData)
     {
         obstacle = 1;
     }
-    if (voxelCoord.x + 1 > BOX_N - 1)
+    if (voxelCoord.x + 1 > m_size.x - 1)
     {
         obstacle = 1;
     }
@@ -73,7 +73,7 @@ void ComputeObstacles(vec3 voxelCoord, inout vec4 curlObstaclesData)
     {
         obstacle = 1;
     }
-    if (voxelCoord.y + 1 > BOX_N - 1)
+    if (voxelCoord.y + 1 > m_size.y - 1)
     {
         obstacle = 1;
     }
@@ -82,7 +82,7 @@ void ComputeObstacles(vec3 voxelCoord, inout vec4 curlObstaclesData)
     {
         obstacle = 1;
     }
-    if (voxelCoord.z + 1 > BOX_N - 1)
+    if (voxelCoord.z + 1 > m_size.z - 1)
     {
         obstacle = 1;
     }
@@ -174,8 +174,8 @@ void AdvectDensityVelocity(vec3 voxelCoord, in vec4 curlObstaclesData, inout vec
     }
 
     vec3 advectedCoords = GetAdvectedPosCoords(voxelCoord, velocityDensityData);
-    vec3 v = SampleVelocityBilinear(advectedCoords, vec3(BOX_N)) * m_velocityDissipation;
-    float d = SampleBilinear(false, advectedCoords, vec3(BOX_N), 3) * m_densityDissipation;
+    vec3 v = SampleVelocityBilinear(advectedCoords, m_size) * m_velocityDissipation;
+    float d = SampleBilinear(false, advectedCoords, m_size, 3) * m_densityDissipation;
 
     velocityDensityData = vec4(v, d);
 }
@@ -190,8 +190,8 @@ void AdvectReactionTemperature(vec3 voxelCoord, inout vec4 pressureTempPhiReacti
     }
 
     vec3 advectedCoords = GetAdvectedPosCoords(voxelCoord, velocityDensityData);
-    float temp = SampleBilinear(true, advectedCoords, vec3(BOX_N), 1) * m_temperatureDissipation;
-    float reaction = max(0, SampleBilinear(true, advectedCoords, vec3(BOX_N), 3) - m_reactionDecay);
+    float temp = SampleBilinear(true, advectedCoords, m_size, 1) * m_temperatureDissipation;
+    float reaction = max(0, SampleBilinear(true, advectedCoords, m_size, 3) - m_reactionDecay);
 
     pressureTempPhiReactionData = vec4(pressureTempPhiReactionData.x, temp, pressureTempPhiReactionData.z, reaction);
 }
@@ -212,7 +212,7 @@ void ApplyBuoyancy(vec3 voxelCoord, inout vec4 velocityDensityData, in vec4 pres
 
 void ApplyImpulse(vec3 voxelCoord, float _Amount, int index, inout vec4 pressureTempPhiReactionData)
 {
-    vec3 pos = voxelCoord / vec3(BOX_N) - m_inputPos;
+    vec3 pos = voxelCoord / m_size - m_inputPos;
 
     float mag = pos.x * pos.x + pos.y * pos.y + pos.z * pos.z;
     float rad2 = m_inputRadius * m_inputRadius;
@@ -239,13 +239,13 @@ void ComputeVorticityConfinement(vec3 voxelCoord, inout vec4 curlObstaclesData, 
 {
     // vorticity
     vec3 idxL = vec3(max(0, voxelCoord.x - 1), voxelCoord.y, voxelCoord.z);
-    vec3 idxR = vec3(min(BOX_N - 1, voxelCoord.x + 1), voxelCoord.y, voxelCoord.z);
+    vec3 idxR = vec3(min(m_size.x - 1, voxelCoord.x + 1), voxelCoord.y, voxelCoord.z);
 
     vec3 idxB = vec3(voxelCoord.x, max(0, voxelCoord.y - 1), voxelCoord.z);
-    vec3 idxT = vec3(voxelCoord.x, min(BOX_N - 1, voxelCoord.y + 1), voxelCoord.z);
+    vec3 idxT = vec3(voxelCoord.x, min(m_size.y - 1, voxelCoord.y + 1), voxelCoord.z);
     
     vec3 idxD = vec3(voxelCoord.x, voxelCoord.y, max(0, voxelCoord.z - 1));
-    vec3 idxU = vec3(voxelCoord.x, voxelCoord.y, min(BOX_N - 1, voxelCoord.z + 1));
+    vec3 idxU = vec3(voxelCoord.x, voxelCoord.y, min(m_size.z - 1, voxelCoord.z + 1));
 
     vec3 L = GetVelocityDensityData(idxL).xyz;
     vec3 R = GetVelocityDensityData(idxR).xyz;
@@ -285,13 +285,13 @@ void ComputeVorticityConfinement(vec3 voxelCoord, inout vec4 curlObstaclesData, 
 void ComputeDivergence(vec3 voxelCoord, inout vec4 curlObstaclesData)
 {
     vec3 idxL = vec3(max(0, voxelCoord.x - 1), voxelCoord.y, voxelCoord.z);
-    vec3 idxR = vec3(min(BOX_N - 1, voxelCoord.x + 1), voxelCoord.y, voxelCoord.z);
+    vec3 idxR = vec3(min(m_size.x - 1, voxelCoord.x + 1), voxelCoord.y, voxelCoord.z);
 
     vec3 idxB = vec3(voxelCoord.x, max(0, voxelCoord.y - 1), voxelCoord.z);
-    vec3 idxT = vec3(voxelCoord.x, min(BOX_N - 1, voxelCoord.y + 1), voxelCoord.z);
+    vec3 idxT = vec3(voxelCoord.x, min(m_size.y - 1, voxelCoord.y + 1), voxelCoord.z);
 
     vec3 idxD = vec3(voxelCoord.x, voxelCoord.y, max(0, voxelCoord.z - 1));
-    vec3 idxU = vec3(voxelCoord.x, voxelCoord.y, min(BOX_N - 1, voxelCoord.z + 1));
+    vec3 idxU = vec3(voxelCoord.x, voxelCoord.y, min(m_size.z - 1, voxelCoord.z + 1));
 
     vec3 L = GetVelocityDensityData(idxL).xyz;
     vec3 R = GetVelocityDensityData(idxR).xyz;
@@ -340,13 +340,13 @@ void ComputeDivergence(vec3 voxelCoord, inout vec4 curlObstaclesData)
 void ComputePressure(vec3 voxelCoord, in vec4 curlObstaclesData, inout vec4 pressureTempPhiReactionData)
 {
     vec3 idxL = vec3(max(0, voxelCoord.x - 1), voxelCoord.y, voxelCoord.z);
-    vec3 idxR = vec3(min(BOX_N - 1, voxelCoord.x + 1), voxelCoord.y, voxelCoord.z);
+    vec3 idxR = vec3(min(m_size.x - 1, voxelCoord.x + 1), voxelCoord.y, voxelCoord.z);
 
     vec3 idxB = vec3(voxelCoord.x, max(0, voxelCoord.y - 1), voxelCoord.z);
-    vec3 idxT = vec3(voxelCoord.x, min(BOX_N - 1, voxelCoord.y + 1), voxelCoord.z);
+    vec3 idxT = vec3(voxelCoord.x, min(m_size.y - 1, voxelCoord.y + 1), voxelCoord.z);
 
     vec3 idxD = vec3(voxelCoord.x, voxelCoord.y, max(0, voxelCoord.z - 1));
-    vec3 idxU = vec3(voxelCoord.x, voxelCoord.y, min(BOX_N - 1, voxelCoord.z + 1));
+    vec3 idxU = vec3(voxelCoord.x, voxelCoord.y, min(m_size.z - 1, voxelCoord.z + 1));
 
     float L = GetPressureTempPhiReactionData(idxL).x;
     float R = GetPressureTempPhiReactionData(idxR).x;
@@ -400,13 +400,13 @@ void ComputeProjection(vec3 voxelCoord, in vec4 curlObstaclesData, in vec4 press
     }
 
     vec3 idxL = vec3(max(0, voxelCoord.x - 1), voxelCoord.y, voxelCoord.z);
-    vec3 idxR = vec3(min(BOX_N - 1, voxelCoord.x + 1), voxelCoord.y, voxelCoord.z);
+    vec3 idxR = vec3(min(m_size.x - 1, voxelCoord.x + 1), voxelCoord.y, voxelCoord.z);
 
     vec3 idxB = vec3(voxelCoord.x, max(0, voxelCoord.y - 1), voxelCoord.z);
-    vec3 idxT = vec3(voxelCoord.x, min(BOX_N - 1, voxelCoord.y + 1), voxelCoord.z);
+    vec3 idxT = vec3(voxelCoord.x, min(m_size.y - 1, voxelCoord.y + 1), voxelCoord.z);
 
     vec3 idxD = vec3(voxelCoord.x, voxelCoord.y, max(0, voxelCoord.z - 1));
-    vec3 idxU = vec3(voxelCoord.x, voxelCoord.y, min(BOX_N - 1, voxelCoord.z + 1));
+    vec3 idxU = vec3(voxelCoord.x, voxelCoord.y, min(m_size.z - 1, voxelCoord.z + 1));
 
     float L = GetPressureTempPhiReactionData(idxL).x;
     float R = GetPressureTempPhiReactionData(idxR).x;

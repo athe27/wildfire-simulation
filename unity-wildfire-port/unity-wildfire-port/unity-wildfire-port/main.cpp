@@ -20,7 +20,9 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
 // texture size
-const unsigned int BOX_N = 128;
+const unsigned int WIDTH = 64;
+const unsigned int DEPTH = 64;
+const unsigned int HEIGHT = 128;
 
 // timing 
 float deltaTime = 0.0f; // time between current frame and last frame
@@ -124,10 +126,10 @@ int main(int argc, char* argv[])
 	screenQuad.setInt("pressureTempPhiReactionTexture", 1);
 	screenQuad.setInt("curlObstaclesTexture", 2);
 
-	screenQuad.setInt("BOX_N", BOX_N);
+	screenQuad.setVec3("m_size", glm::vec3(WIDTH, HEIGHT, DEPTH));
 
 	computeShader.use();
-	computeShader.setInt("BOX_N", BOX_N);
+	computeShader.setVec3("m_size", glm::vec3(WIDTH, HEIGHT, DEPTH));
 	computeShader.setFloat("dt", 0.1f);
 	computeShader.setInt("m_iterations", 10);
 	computeShader.setFloat("m_vorticityStrength", 1.0f);
@@ -149,7 +151,7 @@ int main(int argc, char* argv[])
 	// -----------------------------------
 	GLuint textures[3];
 
-	generateMultipleTextures(3, textures, BOX_N, BOX_N, BOX_N);
+	generateMultipleTextures(3, textures, WIDTH, HEIGHT, DEPTH);
 
 	// render loop
 	// -----------
@@ -171,7 +173,7 @@ int main(int argc, char* argv[])
 		computeShader.use();
 		computeShader.setFloat("iTime", currentFrame);
 
-		glDispatchCompute(BOX_N, BOX_N, BOX_N);
+		glDispatchCompute(WIDTH, HEIGHT, DEPTH);
 
 		// make sure writing to image has finished before read
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
