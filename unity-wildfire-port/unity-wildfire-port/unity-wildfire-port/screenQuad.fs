@@ -107,6 +107,12 @@ vec3 colormapInferno(float t, float h) {
     ) * 0.5 * vec3(3., 1.5, 1.1), 0, 1);
 }
 
+vec3 colormapInferno2(float t)
+{
+    t = 1-t;
+    return clamp(vec3(1.5*t, 1.5*t*t*t, t*t*t*t*t*t), 0, 1);
+}
+
 void march(
     in vec3 p, in vec3 nv,
     out vec4 color
@@ -208,11 +214,11 @@ void march2(
         start += ds;
     }
 
-    // TODO: Use a gradient map for fire or some other mapping
-    vec4 smoke = vec4(1) * (1.0-smokeAlpha);
-	vec4 fire = vec4(1, 0, 0, 1) * (1.0-fireAlpha);
+    vec4 smoke = vec4(0, 0, 0, 1) * (1.0-smokeAlpha);
+	vec4 fire = vec4(colormapInferno2(fireAlpha), 1.0) * (1.0-fireAlpha);
 
-    color = fire + smoke;
+    color = fire;
+    color = vec4(color.rgb + (1.0 - color.a) * smoke.xyz, color.a + smoke.a - color.a*smoke.a);
 }
 
 void main()
@@ -234,7 +240,7 @@ void main()
     vec4 vWorld = clipToWorld * vec4(uv*2.0 - 1.0, 1.0, 1.0);
     vec3 nvCamDir = normalize(vWorld.xyz / vWorld.w);
 
-    vec3 bgColor = vec3(0.0);
+    vec3 bgColor = vec3(1.0);
 
     vec4 finalColor;
     march2(camPos, nvCamDir, finalColor);

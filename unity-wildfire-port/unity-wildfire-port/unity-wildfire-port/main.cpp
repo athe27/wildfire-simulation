@@ -20,7 +20,7 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
 // texture size
-const unsigned int BOX_N = 64;
+const unsigned int BOX_N = 128;
 
 // timing 
 float deltaTime = 0.0f; // time between current frame and last frame
