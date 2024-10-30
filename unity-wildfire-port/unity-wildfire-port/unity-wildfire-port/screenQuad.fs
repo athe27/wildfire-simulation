@@ -84,16 +84,6 @@ vec4 readCurlObstacles(vec3 voxelCoords)
     return texture(curlObstaclesTexture, texCoords);
 }
 
-vec4 readLMN(vec3 lmn) {
-    vec3 texCoords = lmn / vec3(BOX_N);
-    return texture(velocityDensityTexture, texCoords);
-}
-
-vec3 readCurlAtLMN(vec3 lmn) {
-    vec3 texCoords = lmn / vec3(BOX_N);
-    return texture(pressureTempPhiReactionTexture, texCoords).xyz;
-}
-
 void boxFromLMN(in vec3 lmn, out vec3 boxMin, out vec3 boxMax) {
     vec3 boxSize = (BOX_MAX - BOX_MIN) / BOX_N;
 
@@ -135,12 +125,13 @@ void march(
 		// Get voxel data
         vec3 lmn = lmnFromWorldPos( p + (t+EPS)*nv );
         
-        vec4 data = readLMN(lmn);
+        vec4 velocityDensityData = readVelocityDensity(lmn);
+        vec4 pressureTempPhiReactionData = readPressureTempPhiReaction(lmn);
 
-        vec3 curlV = readCurlAtLMN(lmn);
+        vec3 curlV = readCurlObstacles(lmn).xyz;
 
-        float normalizedDensity = unmix(0.5, 3.0, data.w);
-        float normalizedSpeed = pow(unmix(0.0, 10.0, length(data.xyz)), 0.5);
+        float normalizedDensity = unmix(0.5, 3.0, velocityDensityData.w + pressureTempPhiReactionData.w);
+        float normalizedSpeed = pow(unmix(0.0, 10.0, length(velocityDensityData.xyz)), 0.5);
         float normalizedVorticity = clamp(pow(length(curlV),0.5), 0.0, 1.0);
 
         float normalizedTemperature = 0.5 * normalizedSpeed + 0.5 * normalizedVorticity;
@@ -173,11 +164,68 @@ void march(
     }
 }
 
+void march2(
+    in vec3 p, in vec3 nv,
+    out vec4 color
+)
+{
+    vec2 tRange;
+    float didHitBox;
+    boxClip(BOX_MIN, BOX_MAX, p, nv, tRange, didHitBox);
+
+    color = vec4(0.0);
+    if (tRange.x < 0.0)
+    {
+        tRange.x = 0.0;
+    }
+
+    vec3 rayStart = p + nv * tRange.x;
+    vec3 rayStop = p + nv * tRange.y;
+
+    vec3 start = rayStart;
+    float dist = distance(rayStop, rayStart);
+    float stepSize = dist/64.0;
+
+    vec3 ds = normalize(rayStop-rayStart) * stepSize;
+    float fireAlpha = 1.0; 
+    float smokeAlpha = 1.0;
+
+    for(int i=0; i < 64; i++) 
+    {
+        vec3 voxelCoord = lmnFromWorldPos(start);
+
+        float D = readVelocityDensity(voxelCoord).w;
+        float R = readPressureTempPhiReaction(voxelCoord).w;
+
+        fireAlpha *= 1.0-clamp(R*stepSize*40.0, 0.0, 1.0);
+        smokeAlpha *= 1.0-clamp(D*stepSize*60.0, 0.0, 1.0);
+        			
+    	if(fireAlpha <= 0.01 && smokeAlpha <= 0.01)
+        {
+            break;
+        }
+
+        start += ds;
+    }
+
+    // TODO: Use a gradient map for fire or some other mapping
+    vec4 smoke = vec4(1) * (1.0-smokeAlpha);
+	vec4 fire = vec4(1, 0, 0, 1) * (1.0-fireAlpha);
+
+    color = fire + smoke;
+}
+
 void main()
 {             
     vec2 uv = TexCoords;
 
-    vec3 camPos = vec3(0, 0, 3);
+    vec2 mouseAng = vec2(-iTime*0.27, 0.5*3.14159 + 0.6*sin(iTime*0.21));
+    vec3 camPos = 2.5 * (
+        sin(mouseAng.y) * vec3(cos(2.0*mouseAng.x), 0.0, sin(2.0*mouseAng.x)) +
+        cos(mouseAng.y) * vec3(0.0, 1.0, 0.0)
+    );
+
+    //vec3 camPos = vec3(0, 0, 3);
     vec3 lookTarget = vec3(0.0);
 
  	vec3 nvCamFw = normalize(lookTarget - camPos);
@@ -189,6 +237,6 @@ void main()
     vec3 bgColor = vec3(0.0);
 
     vec4 finalColor;
-    march(camPos, nvCamDir, finalColor);
+    march2(camPos, nvCamDir, finalColor);
     FragColor = vec4(finalColor.rgb + (1.0 - finalColor.a)*bgColor, 1.0);
 }
