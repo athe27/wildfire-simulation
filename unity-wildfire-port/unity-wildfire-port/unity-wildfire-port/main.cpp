@@ -26,6 +26,37 @@ const unsigned int BOX_N = 128;
 float deltaTime = 0.0f; // time between current frame and last frame
 float lastFrame = 0.0f; // time of last frame
 
+GLboolean generateMultipleTextures(GLsizei count, GLuint* textures,
+	GLsizei width, GLsizei height, GLsizei depth) {
+	// Generate all textures at once
+	glGenTextures(count, textures);
+
+	// Set up each texture
+	for (GLsizei i = 0; i < count; i++) {
+		glActiveTexture(GL_TEXTURE0 + i);
+		glBindTexture(GL_TEXTURE_3D, textures[i]);
+
+		// Set common parameters
+		const GLint wrap = GL_CLAMP_TO_BORDER;
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, wrap);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, wrap);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, wrap);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+		glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F,
+			width, height, depth,
+			0, GL_RGBA, GL_FLOAT, NULL);
+
+		glBindImageTexture(i, textures[i], 0, GL_TRUE, 0,
+			GL_READ_WRITE, GL_RGBA32F);
+	}
+
+	// Check for any errors during the process
+	GLenum err = glGetError();
+	return (err == GL_NO_ERROR);
+}
+
 int main(int argc, char* argv[])
 {
 	// glfw: initialize and configure
@@ -89,27 +120,36 @@ int main(int argc, char* argv[])
 	ComputeShader computeShader("computeShader.cs");
 
 	screenQuad.use();
-	screenQuad.setInt("tex", 0);
+	screenQuad.setInt("velocityDensityTexture", 0);
+	screenQuad.setInt("pressureTempPhiReactionTexture", 1);
+	screenQuad.setInt("curlObstaclesTexture", 2);
+
 	screenQuad.setInt("BOX_N", BOX_N);
 
 	computeShader.use();
 	computeShader.setInt("BOX_N", BOX_N);
+	computeShader.setFloat("dt", 0.1f);
+	computeShader.setInt("m_iterations", 10);
+	computeShader.setFloat("m_vorticityStrength", 1.0f);
+	computeShader.setFloat("m_densityAmount", 1.0f);
+	computeShader.setFloat("m_densityDissipation", 0.999f);
+	computeShader.setFloat("m_densityBuoyancy", 1.0f);
+	computeShader.setFloat("m_densityWeight", 0.0125f);
+	computeShader.setFloat("m_temperatureAmount", 10.0f);
+	computeShader.setFloat("m_temperatureDissipation", 0.995f);
+	computeShader.setFloat("m_reactionAmount", 1.0f);
+	computeShader.setFloat("m_reactionDecay", 0.001f);
+	computeShader.setFloat("m_reactionExtinguishment", 0.01f);
+	computeShader.setFloat("m_velocityDissipation", 0.995f);
+	computeShader.setFloat("m_inputRadius", 0.04f);
+	computeShader.setFloat("m_ambientTemperature", 0.0f);
+	computeShader.setVec3("m_inputPos", glm::vec3(0.5f, 0.1f, 0.5f));
 
 	// Create texture for opengl operation
 	// -----------------------------------
-	unsigned int texture;
+	GLuint textures[3];
 
-	glGenTextures(1, &texture);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_3D, texture);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, BOX_N, BOX_N, BOX_N * 2 + 1, 0, GL_RGBA, GL_FLOAT, NULL);
-
-	glBindImageTexture(0, texture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
+	generateMultipleTextures(3, textures, BOX_N, BOX_N, BOX_N);
 
 	// render loop
 	// -----------
@@ -120,7 +160,7 @@ int main(int argc, char* argv[])
 		float currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
-		if (fCounter > 500) {
+		if (fCounter > 60) {
 			std::cout << "FPS: " << 1 / deltaTime << std::endl;
 			fCounter = 0;
 		}
@@ -131,7 +171,7 @@ int main(int argc, char* argv[])
 		computeShader.use();
 		computeShader.setFloat("iTime", currentFrame);
 
-		glDispatchCompute(BOX_N, BOX_N, BOX_N * 2 + 1);
+		glDispatchCompute(BOX_N, BOX_N, BOX_N);
 
 		// make sure writing to image has finished before read
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -157,7 +197,7 @@ int main(int argc, char* argv[])
 
 	// optional: de-allocate all resources once they've outlived their purpose:
 	// ------------------------------------------------------------------------
-	glDeleteTextures(1, &texture);
+	glDeleteTextures(2, textures);
 	glDeleteProgram(screenQuad.ID);
 	glDeleteProgram(computeShader.ID);
 

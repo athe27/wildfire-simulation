@@ -4,7 +4,9 @@ out vec4 FragColor;
 in vec2 TexCoords;
 
 uniform int BOX_N;
-uniform sampler3D tex;
+uniform sampler3D velocityDensityTexture;
+uniform sampler3D pressureTempPhiReactionTexture;
+uniform sampler3D curlObstaclesTexture;
 uniform float iTime;
 uniform vec3 iResolution; // x: width, y: height, z: aspect ratio
 
@@ -61,17 +63,35 @@ void boxClip(
 
 vec3 lmnFromWorldPos(vec3 p) {
     vec3 uvw = (p - BOX_MIN) / (BOX_MAX - BOX_MIN);
-    return floor(uvw * vec3(BOX_N));
+    return (uvw * vec3(BOX_N));
+}
+
+vec4 readVelocityDensity(vec3 voxelCoords)
+{
+    vec3 texCoords = voxelCoords / vec3(BOX_N);
+    return texture(velocityDensityTexture, texCoords);
+}
+
+vec4 readPressureTempPhiReaction(vec3 voxelCoords)
+{
+    vec3 texCoords = voxelCoords / vec3(BOX_N);
+    return texture(pressureTempPhiReactionTexture, texCoords);
+}
+
+vec4 readCurlObstacles(vec3 voxelCoords)
+{
+    vec3 texCoords = voxelCoords / vec3(BOX_N);
+    return texture(curlObstaclesTexture, texCoords);
 }
 
 vec4 readLMN(vec3 lmn) {
-    vec3 texCoords = lmn / vec3(BOX_N, BOX_N, 2 * BOX_N + 1);
-    return texture(tex, texCoords);
+    vec3 texCoords = lmn / vec3(BOX_N);
+    return texture(velocityDensityTexture, texCoords);
 }
 
 vec3 readCurlAtLMN(vec3 lmn) {
-    vec3 texCoords = (lmn + vec3(0.0, 0.0, BOX_N + 1)) / vec3(BOX_N, BOX_N, 2 * BOX_N + 1);
-    return texture(tex, texCoords).xyz;
+    vec3 texCoords = lmn / vec3(BOX_N);
+    return texture(pressureTempPhiReactionTexture, texCoords).xyz;
 }
 
 void boxFromLMN(in vec3 lmn, out vec3 boxMin, out vec3 boxMax) {
@@ -156,6 +176,13 @@ void march(
 void main()
 {             
     vec2 uv = TexCoords;
+
+    vec3 coords = vec3(uv.x * BOX_N, uv.y * BOX_N, mod(iTime, 1) * BOX_N);
+    vec4 velocityDensity = readVelocityDensity(coords);
+    vec4 pressureTempPhiReaction = readPressureTempPhiReaction(coords);
+    vec4 curlObstacles = readCurlObstacles(coords);
+    FragColor = vec4(vec3(velocityDensity.w * 10, pressureTempPhiReaction.w, 0.0), 1.0);
+    return;
 
     vec3 camPos = vec3(0, 0, 3);
     vec3 lookTarget = vec3(0.0);
