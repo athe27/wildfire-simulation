@@ -177,13 +177,6 @@ void main()
 {             
     vec2 uv = TexCoords;
 
-    vec3 coords = vec3(uv.x * BOX_N, uv.y * BOX_N, mod(iTime, 1) * BOX_N);
-    vec4 velocityDensity = readVelocityDensity(coords);
-    vec4 pressureTempPhiReaction = readPressureTempPhiReaction(coords);
-    vec4 curlObstacles = readCurlObstacles(coords);
-    FragColor = vec4(vec3(velocityDensity.w * 10, pressureTempPhiReaction.w, 0.0), 1.0);
-    return;
-
     vec3 camPos = vec3(0, 0, 3);
     vec3 lookTarget = vec3(0.0);
 
