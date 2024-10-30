@@ -132,20 +132,20 @@ int main(int argc, char* argv[])
 	computeShader.setVec3("m_size", glm::vec3(WIDTH, HEIGHT, DEPTH));
 	computeShader.setFloat("dt", 0.1f);
 	computeShader.setInt("m_iterations", 10);
-	computeShader.setFloat("m_vorticityStrength", 1.0f);
+	computeShader.setFloat("m_vorticityStrength", 5.0f);
 	computeShader.setFloat("m_densityAmount", 1.0f);
-	computeShader.setFloat("m_densityDissipation", 0.999f);
+	computeShader.setFloat("m_densityDissipation", 0.99f);
 	computeShader.setFloat("m_densityBuoyancy", 1.0f);
 	computeShader.setFloat("m_densityWeight", 0.0125f);
 	computeShader.setFloat("m_temperatureAmount", 10.0f);
 	computeShader.setFloat("m_temperatureDissipation", 0.995f);
 	computeShader.setFloat("m_reactionAmount", 1.0f);
-	computeShader.setFloat("m_reactionDecay", 0.001f);
+	computeShader.setFloat("m_reactionDecay", 0.003f);
 	computeShader.setFloat("m_reactionExtinguishment", 0.01f);
 	computeShader.setFloat("m_velocityDissipation", 0.995f);
 	computeShader.setFloat("m_inputRadius", 0.04f);
 	computeShader.setFloat("m_ambientTemperature", 0.0f);
-	computeShader.setVec3("m_inputPos", glm::vec3(0.5f, 0.1f, 0.5f));
+	computeShader.setVec3("m_inputPos", glm::vec3(0.5f, 0.0f, 0.5f));
 
 	// Create texture for opengl operation
 	// -----------------------------------
