@@ -15,8 +15,8 @@ uniform vec3 iResolution; // x: width, y: height, z: aspect ratio
 #define CAM_Z_NEAR 0.1
 #define CAM_Z_FAR 50.0
 
-#define BOX_MIN vec3(-0.5, -1, -0.5)
-#define BOX_MAX vec3(0.5, 1, 0.5)
+#define BOX_MIN -m_size / max(max(m_size.x, m_size.y), m_size.z)
+#define BOX_MAX m_size / max(max(m_size.x, m_size.y), m_size.z)
 
 #define EPS 0.001
 
