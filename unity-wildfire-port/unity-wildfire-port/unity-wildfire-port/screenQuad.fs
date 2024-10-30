@@ -180,6 +180,11 @@ void march2(
     boxClip(BOX_MIN, BOX_MAX, p, nv, tRange, didHitBox);
 
     color = vec4(0.0);
+
+    if (didHitBox < 0.5) {
+        return;
+    }
+
     if (tRange.x < 0.0)
     {
         tRange.x = 0.0;
