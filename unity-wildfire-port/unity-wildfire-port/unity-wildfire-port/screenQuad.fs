@@ -3,18 +3,22 @@ out vec4 FragColor;
 
 in vec2 TexCoords;
 
-uniform int BOX_N;
-uniform sampler3D tex;
+uniform vec3 m_size;
+uniform sampler3D velocityDensityTexture;
+uniform sampler3D pressureTempPhiReactionTexture;
+uniform sampler3D curlObstaclesTexture;
 uniform float iTime;
 uniform vec3 iResolution; // x: width, y: height, z: aspect ratio
+uniform bool mouseDown;
+uniform vec2 mousePos;
 
 #define FIXED_UP vec3(0.0, 1.0, 0.0)
 #define TAN_HALF_FOVY 0.5773502691896257
 #define CAM_Z_NEAR 0.1
 #define CAM_Z_FAR 50.0
 
-#define BOX_MIN vec3(-1.0)
-#define BOX_MAX vec3(1.0)
+#define BOX_MIN -m_size / max(max(m_size.x, m_size.y), m_size.z)
+#define BOX_MAX m_size / max(max(m_size.x, m_size.y), m_size.z)
 
 #define EPS 0.001
 
@@ -61,23 +65,31 @@ void boxClip(
 
 vec3 lmnFromWorldPos(vec3 p) {
     vec3 uvw = (p - BOX_MIN) / (BOX_MAX - BOX_MIN);
-    return floor(uvw * vec3(BOX_N));
+    return (uvw * m_size);
 }
 
-vec4 readLMN(vec3 lmn) {
-    vec3 texCoords = lmn / vec3(BOX_N, BOX_N, 2 * BOX_N + 1);
-    return texture(tex, texCoords);
+vec4 readVelocityDensity(vec3 voxelCoords)
+{
+    vec3 texCoords = voxelCoords / m_size;
+    return texture(velocityDensityTexture, texCoords);
 }
 
-vec3 readCurlAtLMN(vec3 lmn) {
-    vec3 texCoords = (lmn + vec3(0.0, 0.0, BOX_N + 1)) / vec3(BOX_N, BOX_N, 2 * BOX_N + 1);
-    return texture(tex, texCoords).xyz;
+vec4 readPressureTempPhiReaction(vec3 voxelCoords)
+{
+    vec3 texCoords = voxelCoords / m_size;
+    return texture(pressureTempPhiReactionTexture, texCoords);
+}
+
+vec4 readCurlObstacles(vec3 voxelCoords)
+{
+    vec3 texCoords = voxelCoords / m_size;
+    return texture(curlObstaclesTexture, texCoords);
 }
 
 void boxFromLMN(in vec3 lmn, out vec3 boxMin, out vec3 boxMax) {
-    vec3 boxSize = (BOX_MAX - BOX_MIN) / BOX_N;
+    vec3 boxSize = (BOX_MAX - BOX_MIN) / m_size;
 
-    boxMin = BOX_MIN + (floor(lmn)/BOX_N) * (BOX_MAX - BOX_MIN);
+    boxMin = BOX_MIN + (floor(lmn)/m_size) * (BOX_MAX - BOX_MIN);
     boxMax = boxMin + boxSize;
 }
 
@@ -95,6 +107,12 @@ vec3 colormapInferno(float t, float h) {
         t*t,
         t * (3.0*t - 2.0)*(3.0*t - 2.0)
     ) * 0.5 * vec3(3., 1.5, 1.1), 0, 1);
+}
+
+vec3 colormapInferno2(float t)
+{
+    t = 1-t;
+    return clamp(vec3(1.5*t, 1.5*t*t*t, t*t*t*t*t*t), 0, 1);
 }
 
 void march(
@@ -115,16 +133,17 @@ void march(
 		// Get voxel data
         vec3 lmn = lmnFromWorldPos( p + (t+EPS)*nv );
         
-        vec4 data = readLMN(lmn);
+        vec4 velocityDensityData = readVelocityDensity(lmn);
+        vec4 pressureTempPhiReactionData = readPressureTempPhiReaction(lmn);
 
-        vec3 curlV = readCurlAtLMN(lmn);
+        vec3 curlV = readCurlObstacles(lmn).xyz;
 
-        float normalizedDensity = unmix(0.5, 3.0, data.w);
-        float normalizedSpeed = pow(unmix(0.0, 10.0, length(data.xyz)), 0.5);
+        float normalizedDensity = unmix(0.5, 3.0, velocityDensityData.w + pressureTempPhiReactionData.w);
+        float normalizedSpeed = pow(unmix(0.0, 10.0, length(velocityDensityData.xyz)), 0.5);
         float normalizedVorticity = clamp(pow(length(curlV),0.5), 0.0, 1.0);
 
         float normalizedTemperature = 0.5 * normalizedSpeed + 0.5 * normalizedVorticity;
-        vec3 cbase = colormapInferno( normalizedTemperature, 1 -(lmn.y / BOX_N) );
+        vec3 cbase = colormapInferno( normalizedTemperature, 1 -(lmn.y / m_size.y) );
         float calpha = pow(normalizedSpeed, 3.0) * .2;
         //vec3 fireColor = mix(vec3(normalizedSpeed), cbase, normalizedSpeed);
 
@@ -153,11 +172,87 @@ void march(
     }
 }
 
+void march2(
+    in vec3 p, in vec3 nv,
+    out vec4 color
+)
+{
+    vec2 tRange;
+    float didHitBox;
+    boxClip(BOX_MIN, BOX_MAX, p, nv, tRange, didHitBox);
+
+    color = vec4(0.0);
+
+    if (didHitBox < 0.5) {
+        return;
+    }
+
+    if (tRange.x < 0.0)
+    {
+        tRange.x = 0.0;
+    }
+
+    vec3 rayStart = p + nv * tRange.x;
+    vec3 rayStop = p + nv * tRange.y;
+
+    vec3 start = rayStart;
+    float dist = distance(rayStop, rayStart);
+    float stepSize = dist/64.0;
+
+    vec3 ds = normalize(rayStop-rayStart) * stepSize;
+    float fireAlpha = 1.0; 
+    float smokeAlpha = 1.0;
+
+    for(int i=0; i < 64; i++) 
+    {
+        vec3 voxelCoord = lmnFromWorldPos(start);
+
+        float D = readVelocityDensity(voxelCoord).w;
+        float R = readPressureTempPhiReaction(voxelCoord).w;
+
+        fireAlpha *= 1.0-clamp(R*stepSize*40.0, 0.0, 1.0);
+        smokeAlpha *= 1.0-clamp(D*stepSize*60.0, 0.0, 1.0);
+        			
+    	if(fireAlpha <= 0.01 && smokeAlpha <= 0.01)
+        {
+            break;
+        }
+
+        start += ds;
+    }
+
+    vec4 smoke = vec4(vec3(0.5), 1) * (1.0-smokeAlpha);
+	vec4 fire = vec4(colormapInferno2(fireAlpha), 1.0) * (1.0-fireAlpha);
+
+    color = fire;
+    color = vec4(color.rgb + (1.0 - color.a) * smoke.xyz, color.a + smoke.a - color.a*smoke.a);
+}
+
 void main()
 {             
     vec2 uv = TexCoords;
 
-    vec3 camPos = vec3(0, 0, 3);
+    //vec2 mouseAng = vec2(-iTime*0.27, 0.5*3.14159 + 0.6*sin(iTime*0.21));
+    //vec3 camPos = 2.5 * (
+    //    sin(mouseAng.y) * vec3(cos(2.0*mouseAng.x), 0.0, sin(2.0*mouseAng.x)) +
+    //    cos(mouseAng.y) * vec3(0.0, 1.0, 0.0)
+    //);
+
+    int mouseMix = 0;
+    if (mouseDown == true) {
+        mouseMix = 1;
+    }
+
+    vec2 mouseAng = mix(
+        vec2(0, 0.5*3.14159),
+        3.14159 * vec2(mousePos.x, iResolution.y - mousePos.y) / iResolution.xy,
+        mouseMix
+    );
+
+    vec3 camPos = 2.5 * (
+        sin(mouseAng.y) * vec3(cos(2.0*mouseAng.x), 0.0, sin(2.0*mouseAng.x)) +
+        cos(mouseAng.y) * vec3(0.0, 1.0, 0.0)
+    );
     vec3 lookTarget = vec3(0.0);
 
  	vec3 nvCamFw = normalize(lookTarget - camPos);
@@ -166,9 +261,9 @@ void main()
     vec4 vWorld = clipToWorld * vec4(uv*2.0 - 1.0, 1.0, 1.0);
     vec3 nvCamDir = normalize(vWorld.xyz / vWorld.w);
 
-    vec3 bgColor = vec3(0.0);
+    vec3 bgColor = vec3(1.0);
 
     vec4 finalColor;
-    march(camPos, nvCamDir, finalColor);
+    march2(camPos, nvCamDir, finalColor);
     FragColor = vec4(finalColor.rgb + (1.0 - finalColor.a)*bgColor, 1.0);
 }

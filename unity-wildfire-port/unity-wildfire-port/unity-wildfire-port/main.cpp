@@ -13,6 +13,7 @@
 #include <iostream>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void renderQuad();
 
 // settings
@@ -20,11 +21,47 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
 // texture size
-const unsigned int BOX_N = 128;
+const unsigned int WIDTH = 64;
+const unsigned int DEPTH = 64;
+const unsigned int HEIGHT = 128;
 
 // timing 
 float deltaTime = 0.0f; // time between current frame and last frame
 float lastFrame = 0.0f; // time of last frame
+
+bool mouseDown = false;
+glm::vec2 mousePos = glm::vec2(0.0f, 0.0f);
+
+GLboolean generateMultipleTextures(GLsizei count, GLuint* textures,
+	GLsizei width, GLsizei height, GLsizei depth) {
+	// Generate all textures at once
+	glGenTextures(count, textures);
+
+	// Set up each texture
+	for (GLsizei i = 0; i < count; i++) {
+		glActiveTexture(GL_TEXTURE0 + i);
+		glBindTexture(GL_TEXTURE_3D, textures[i]);
+
+		// Set common parameters
+		const GLint wrap = GL_CLAMP_TO_BORDER;
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, wrap);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, wrap);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, wrap);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+		glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F,
+			width, height, depth,
+			0, GL_RGBA, GL_FLOAT, NULL);
+
+		glBindImageTexture(i, textures[i], 0, GL_TRUE, 0,
+			GL_READ_WRITE, GL_RGBA32F);
+	}
+
+	// Check for any errors during the process
+	GLenum err = glGetError();
+	return (err == GL_NO_ERROR);
+}
 
 int main(int argc, char* argv[])
 {
@@ -50,6 +87,7 @@ int main(int argc, char* argv[])
 	}
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
 	glfwSwapInterval(0);
 
 	// glad: load all OpenGL function pointers
@@ -89,75 +127,110 @@ int main(int argc, char* argv[])
 	ComputeShader computeShader("computeShader.cs");
 
 	screenQuad.use();
-	screenQuad.setInt("tex", 0);
-	screenQuad.setInt("BOX_N", BOX_N);
+	screenQuad.setInt("velocityDensityTexture", 0);
+	screenQuad.setInt("pressureTempPhiReactionTexture", 1);
+	screenQuad.setInt("curlObstaclesTexture", 2);
+	screenQuad.setVec3("m_size", glm::vec3(WIDTH, HEIGHT, DEPTH));
+	screenQuad.setBool("mouseDown", mouseDown);
+	screenQuad.setVec2("mousePos", mousePos);
 
 	computeShader.use();
-	computeShader.setInt("BOX_N", BOX_N);
+	computeShader.setVec3("m_size", glm::vec3(WIDTH, HEIGHT, DEPTH));
+	computeShader.setFloat("dt", 0.1f);
+	computeShader.setInt("m_iterations", 10);
+	computeShader.setFloat("m_vorticityStrength", 5.0f);
+	computeShader.setFloat("m_densityAmount", 1.0f);
+	computeShader.setFloat("m_densityDissipation", 0.99f);
+	computeShader.setFloat("m_densityBuoyancy", 1.0f);
+	computeShader.setFloat("m_densityWeight", 0.0125f);
+	computeShader.setFloat("m_temperatureAmount", 10.0f);
+	computeShader.setFloat("m_temperatureDissipation", 0.995f);
+	computeShader.setFloat("m_reactionAmount", 1.0f);
+	computeShader.setFloat("m_reactionDecay", 0.003f);
+	computeShader.setFloat("m_reactionExtinguishment", 0.01f);
+	computeShader.setFloat("m_velocityDissipation", 0.995f);
+	computeShader.setFloat("m_inputRadius", 0.04f);
+	computeShader.setFloat("m_ambientTemperature", 0.0f);
+	computeShader.setVec3("m_inputPos", glm::vec3(0.5f, 0.1f, 0.5f));
 
 	// Create texture for opengl operation
 	// -----------------------------------
-	unsigned int texture;
+	GLuint textures[3];
 
-	glGenTextures(1, &texture);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_3D, texture);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, BOX_N, BOX_N, BOX_N * 2 + 1, 0, GL_RGBA, GL_FLOAT, NULL);
+	generateMultipleTextures(3, textures, WIDTH, HEIGHT, DEPTH);
 
-	glBindImageTexture(0, texture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
+	const double fpsLimit = 1.0 / 60.0;
+	double lastUpdateTime = 0;  // number of seconds since the last loop
+	double lastFrameTime = 0;   // number of seconds since the last frame
+	int frameCounter = 0;
+	double lastFPSCheckTime = 0;
 
-	// render loop
-	// -----------
-	int fCounter = 0;
+	// This while loop repeats as fast as possible
 	while (!glfwWindowShouldClose(window))
 	{
-		// Set frame time
-		float currentFrame = glfwGetTime();
-		deltaTime = currentFrame - lastFrame;
-		lastFrame = currentFrame;
-		if (fCounter > 500) {
-			std::cout << "FPS: " << 1 / deltaTime << std::endl;
-			fCounter = 0;
-		}
-		else {
-			fCounter++;
-		}
+		double now = glfwGetTime();
+		double deltaTime = now - lastUpdateTime;
 
-		computeShader.use();
-		computeShader.setFloat("iTime", currentFrame);
-
-		glDispatchCompute(BOX_N, BOX_N, BOX_N * 2 + 1);
-
-		// make sure writing to image has finished before read
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-		// render image to quad
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		screenQuad.use();
-
-		//set shadertoy params
-		screenQuad.setFloat("iTime", currentFrame);
-
-		int width, height;
-		glfwGetWindowSize(window, &width, &height);
-		screenQuad.setVec3("iResolution", glm::vec3(width, height, width / (float) height));
-
-		renderQuad();
-
-		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-		// -------------------------------------------------------------------------------
-		glfwSwapBuffers(window);
 		glfwPollEvents();
+
+		screenQuad.use();
+		screenQuad.setBool("mouseDown", mouseDown);
+		if (mouseDown == true) {
+			double xpos, ypos;
+			glfwGetCursorPos(window, &xpos, &ypos);
+			mousePos.x = xpos;
+			mousePos.y = ypos;
+			screenQuad.setVec2("mousePos", mousePos);
+		}
+		// update your application logic here,
+		// using deltaTime if necessary (for physics, tweening, etc.)
+
+		// This if-statement only executes once every 60th of a second
+		if ((now - lastFrameTime) >= fpsLimit)
+		{
+			if (frameCounter >= 60) {
+				std::cout << "FPS: " << frameCounter / (now - lastFPSCheckTime) << std::endl;
+				frameCounter = 0;
+				lastFPSCheckTime = now;
+			}
+			else {
+				++frameCounter;
+			}
+			// draw your frame here
+			computeShader.use();
+			computeShader.setFloat("iTime", now);
+
+			glDispatchCompute(WIDTH, HEIGHT, DEPTH);
+
+			// make sure writing to image has finished before read
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+			// render image to quad
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			screenQuad.use();
+
+			//set shadertoy params
+			screenQuad.setFloat("iTime", now);
+
+			int width, height;
+			glfwGetWindowSize(window, &width, &height);
+			screenQuad.setVec3("iResolution", glm::vec3(width, height, width / (float)height));
+
+			renderQuad();
+
+			glfwSwapBuffers(window);
+
+			// only set lastFrameTime when you actually draw something
+			lastFrameTime = now;
+		}
+
+		// set lastUpdateTime every iteration
+		lastUpdateTime = now;
 	}
 
 	// optional: de-allocate all resources once they've outlived their purpose:
 	// ------------------------------------------------------------------------
-	glDeleteTextures(1, &texture);
+	glDeleteTextures(2, textures);
 	glDeleteProgram(screenQuad.ID);
 	glDeleteProgram(computeShader.ID);
 
@@ -205,3 +278,13 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	// height will be significantly larger than specified on retina displays.
 	glViewport(0, 0, width, height);
 }
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+		mouseDown = true;
+	}
+	else {
+		mouseDown = false;
+	}
+}
+
