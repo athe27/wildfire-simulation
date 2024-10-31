@@ -1,10 +1,13 @@
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-
 
 #include <learnopengl/shader_m.h>
 #include <learnopengl/shader_c.h>
@@ -134,24 +137,44 @@ int main(int argc, char* argv[])
 	screenQuad.setBool("mouseDown", mouseDown);
 	screenQuad.setVec2("mousePos", mousePos);
 
+	float dt = 0.1f;
+	int m_iterations = 10;
+	float m_vorticityStrength = 5.0f;
+	float m_densityAmount = 1.0f;
+	float m_densityDissipation = 0.99f;
+	float m_densityBuoyancy = 1.0f;
+	float m_densityWeight = 0.0125f;
+	float m_temperatureAmount = 10.0f;
+	float m_temperatureDissipation = 0.995f;
+	float m_reactionAmount = 1.0f;
+	float m_reactionDecay = 0.003f;
+	float m_reactionExtinguishment = 0.01f;
+	float m_velocityDissipation = 0.995f;
+	float m_inputRadius = 0.04f;
+	float m_ambientTemperature = 0.0f;
+	float m_inputPos[3];
+	m_inputPos[0] = 0.5;
+	m_inputPos[1] = 0.1;
+	m_inputPos[2] = 0.5;
+
 	computeShader.use();
 	computeShader.setVec3("m_size", glm::vec3(WIDTH, HEIGHT, DEPTH));
-	computeShader.setFloat("dt", 0.1f);
-	computeShader.setInt("m_iterations", 10);
-	computeShader.setFloat("m_vorticityStrength", 5.0f);
-	computeShader.setFloat("m_densityAmount", 1.0f);
-	computeShader.setFloat("m_densityDissipation", 0.99f);
-	computeShader.setFloat("m_densityBuoyancy", 1.0f);
-	computeShader.setFloat("m_densityWeight", 0.0125f);
-	computeShader.setFloat("m_temperatureAmount", 10.0f);
-	computeShader.setFloat("m_temperatureDissipation", 0.995f);
-	computeShader.setFloat("m_reactionAmount", 1.0f);
-	computeShader.setFloat("m_reactionDecay", 0.003f);
-	computeShader.setFloat("m_reactionExtinguishment", 0.01f);
-	computeShader.setFloat("m_velocityDissipation", 0.995f);
-	computeShader.setFloat("m_inputRadius", 0.04f);
-	computeShader.setFloat("m_ambientTemperature", 0.0f);
-	computeShader.setVec3("m_inputPos", glm::vec3(0.5f, 0.1f, 0.5f));
+	computeShader.setFloat("dt", dt);
+	computeShader.setInt("m_iterations", m_iterations);
+	computeShader.setFloat("m_vorticityStrength", m_vorticityStrength);
+	computeShader.setFloat("m_densityAmount", m_densityAmount);
+	computeShader.setFloat("m_densityDissipation", m_densityDissipation);
+	computeShader.setFloat("m_densityBuoyancy", m_densityBuoyancy);
+	computeShader.setFloat("m_densityWeight", m_densityWeight);
+	computeShader.setFloat("m_temperatureAmount", m_temperatureAmount);
+	computeShader.setFloat("m_temperatureDissipation", m_temperatureDissipation);
+	computeShader.setFloat("m_reactionAmount", m_reactionAmount);
+	computeShader.setFloat("m_reactionDecay", m_reactionDecay);
+	computeShader.setFloat("m_reactionExtinguishment", m_reactionExtinguishment);
+	computeShader.setFloat("m_velocityDissipation", m_velocityDissipation);
+	computeShader.setFloat("m_inputRadius", m_inputRadius);
+	computeShader.setFloat("m_ambientTemperature", m_ambientTemperature);
+	computeShader.setVec3("m_inputPos", glm::vec3(m_inputPos[0], m_inputPos[1], m_inputPos[2]));
 
 	// Create texture for opengl operation
 	// -----------------------------------
@@ -165,6 +188,19 @@ int main(int argc, char* argv[])
 	int frameCounter = 0;
 	double lastFPSCheckTime = 0;
 
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+	// Setup Dear ImGui style
+	ImGui::StyleColorsDark();
+
+	// Setup Platform/Renderer backends
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 430");
+
 	// This while loop repeats as fast as possible
 	while (!glfwWindowShouldClose(window))
 	{
@@ -173,15 +209,6 @@ int main(int argc, char* argv[])
 
 		glfwPollEvents();
 
-		screenQuad.use();
-		screenQuad.setBool("mouseDown", mouseDown);
-		if (mouseDown == true) {
-			double xpos, ypos;
-			glfwGetCursorPos(window, &xpos, &ypos);
-			mousePos.x = xpos;
-			mousePos.y = ypos;
-			screenQuad.setVec2("mousePos", mousePos);
-		}
 		// update your application logic here,
 		// using deltaTime if necessary (for physics, tweening, etc.)
 
@@ -196,9 +223,48 @@ int main(int argc, char* argv[])
 			else {
 				++frameCounter;
 			}
+			ImGui_ImplOpenGL3_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
+			ImGui::Begin("Config");
+			ImGui::InputFloat("dt", &dt);
+			ImGui::InputInt("iterations", &m_iterations);
+			ImGui::InputFloat("vorticity strength", &m_vorticityStrength);
+			ImGui::InputFloat("density amount", &m_densityAmount);
+			ImGui::InputFloat("density dissipation", &m_densityDissipation);
+			ImGui::InputFloat("density buoyancy", &m_densityBuoyancy);
+			ImGui::InputFloat("density weight", &m_densityWeight);
+			ImGui::InputFloat("temperature amount", &m_temperatureAmount);
+			ImGui::InputFloat("temperature dissipation", &m_temperatureDissipation);
+			ImGui::InputFloat("reaction amount", &m_reactionAmount);
+			ImGui::InputFloat("reaction decay", &m_reactionDecay);
+			ImGui::InputFloat("reaction extinguishment", &m_reactionExtinguishment);
+			ImGui::InputFloat("velocity dissipation", &m_velocityDissipation);
+			ImGui::InputFloat("input radius", &m_inputRadius);
+			ImGui::InputFloat("ambient temperature", &m_ambientTemperature);
+			ImGui::InputFloat3("input position", m_inputPos);
+			ImGui::End();
+
 			// draw your frame here
 			computeShader.use();
 			computeShader.setFloat("iTime", now);
+			// set configs
+			computeShader.setFloat("dt", dt);
+			computeShader.setInt("m_iterations", m_iterations);
+			computeShader.setFloat("m_vorticityStrength", m_vorticityStrength);
+			computeShader.setFloat("m_densityAmount", m_densityAmount);
+			computeShader.setFloat("m_densityDissipation", m_densityDissipation);
+			computeShader.setFloat("m_densityBuoyancy", m_densityBuoyancy);
+			computeShader.setFloat("m_densityWeight", m_densityWeight);
+			computeShader.setFloat("m_temperatureAmount", m_temperatureAmount);
+			computeShader.setFloat("m_temperatureDissipation", m_temperatureDissipation);
+			computeShader.setFloat("m_reactionAmount", m_reactionAmount);
+			computeShader.setFloat("m_reactionDecay", m_reactionDecay);
+			computeShader.setFloat("m_reactionExtinguishment", m_reactionExtinguishment);
+			computeShader.setFloat("m_velocityDissipation", m_velocityDissipation);
+			computeShader.setFloat("m_inputRadius", m_inputRadius);
+			computeShader.setFloat("m_ambientTemperature", m_ambientTemperature);
+			computeShader.setVec3("m_inputPos", glm::vec3(m_inputPos[0], m_inputPos[1], m_inputPos[2]));
 
 			glDispatchCompute(WIDTH, HEIGHT, DEPTH);
 
@@ -216,7 +282,24 @@ int main(int argc, char* argv[])
 			glfwGetWindowSize(window, &width, &height);
 			screenQuad.setVec3("iResolution", glm::vec3(width, height, width / (float)height));
 
+			// set mouse stuff
+			ImGui::Begin("Config");
+			bool isConfigFocused = ImGui::IsWindowFocused() || ImGui::IsWindowHovered();
+			ImGui::End();
+			bool mouseDownReal = mouseDown && isConfigFocused == false;
+			screenQuad.setBool("mouseDown", mouseDownReal);
+			if (mouseDownReal == true) {
+				double xpos, ypos;
+				glfwGetCursorPos(window, &xpos, &ypos);
+				mousePos.x = xpos;
+				mousePos.y = ypos;
+				screenQuad.setVec2("mousePos", mousePos);
+			}
+
 			renderQuad();
+
+			ImGui::Render();
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 			glfwSwapBuffers(window);
 
@@ -233,6 +316,9 @@ int main(int argc, char* argv[])
 	glDeleteTextures(2, textures);
 	glDeleteProgram(screenQuad.ID);
 	glDeleteProgram(computeShader.ID);
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 
 	glfwTerminate();
 
