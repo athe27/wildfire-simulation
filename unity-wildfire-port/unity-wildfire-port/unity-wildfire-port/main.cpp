@@ -159,18 +159,17 @@ int main(int argc, char* argv[])
 
 	generateMultipleTextures(3, textures, WIDTH, HEIGHT, DEPTH);
 
-
-
 	const double fpsLimit = 1.0 / 60.0;
 	double lastUpdateTime = 0;  // number of seconds since the last loop
 	double lastFrameTime = 0;   // number of seconds since the last frame
+	int frameCounter = 0;
+	double lastFPSCheckTime = 0;
 
 	// This while loop repeats as fast as possible
 	while (!glfwWindowShouldClose(window))
 	{
 		double now = glfwGetTime();
 		double deltaTime = now - lastUpdateTime;
-		//std::cout << "FPS: " << 1 / deltaTime << std::endl;
 
 		glfwPollEvents();
 
@@ -189,6 +188,14 @@ int main(int argc, char* argv[])
 		// This if-statement only executes once every 60th of a second
 		if ((now - lastFrameTime) >= fpsLimit)
 		{
+			if (frameCounter >= 60) {
+				std::cout << "FPS: " << frameCounter / (now - lastFPSCheckTime) << std::endl;
+				frameCounter = 0;
+				lastFPSCheckTime = now;
+			}
+			else {
+				++frameCounter;
+			}
 			// draw your frame here
 			computeShader.use();
 			computeShader.setFloat("iTime", now);
