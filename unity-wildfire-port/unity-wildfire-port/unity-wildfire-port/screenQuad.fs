@@ -9,6 +9,8 @@ uniform sampler3D pressureTempPhiReactionTexture;
 uniform sampler3D curlObstaclesTexture;
 uniform float iTime;
 uniform vec3 iResolution; // x: width, y: height, z: aspect ratio
+uniform bool mouseDown;
+uniform vec2 mousePos;
 
 #define FIXED_UP vec3(0.0, 1.0, 0.0)
 #define TAN_HALF_FOVY 0.5773502691896257
@@ -236,7 +238,21 @@ void main()
     //    cos(mouseAng.y) * vec3(0.0, 1.0, 0.0)
     //);
 
-    vec3 camPos = vec3(0, 0, 3);
+    int mouseMix = 0;
+    if (mouseDown == true) {
+        mouseMix = 1;
+    }
+
+    vec2 mouseAng = mix(
+        vec2(0, 0.5*3.14159),
+        3.14159 * vec2(mousePos.x, iResolution.y - mousePos.y) / iResolution.xy,
+        mouseMix
+    );
+
+    vec3 camPos = 2.5 * (
+        sin(mouseAng.y) * vec3(cos(2.0*mouseAng.x), 0.0, sin(2.0*mouseAng.x)) +
+        cos(mouseAng.y) * vec3(0.0, 1.0, 0.0)
+    );
     vec3 lookTarget = vec3(0.0);
 
  	vec3 nvCamFw = normalize(lookTarget - camPos);

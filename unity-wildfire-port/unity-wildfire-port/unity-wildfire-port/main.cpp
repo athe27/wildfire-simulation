@@ -13,6 +13,7 @@
 #include <iostream>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void renderQuad();
 
 // settings
@@ -27,6 +28,9 @@ const unsigned int HEIGHT = 128;
 // timing 
 float deltaTime = 0.0f; // time between current frame and last frame
 float lastFrame = 0.0f; // time of last frame
+
+bool mouseDown = false;
+glm::vec2 mousePos = glm::vec2(0.0f, 0.0f);
 
 GLboolean generateMultipleTextures(GLsizei count, GLuint* textures,
 	GLsizei width, GLsizei height, GLsizei depth) {
@@ -83,6 +87,7 @@ int main(int argc, char* argv[])
 	}
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
 	glfwSwapInterval(0);
 
 	// glad: load all OpenGL function pointers
@@ -125,8 +130,9 @@ int main(int argc, char* argv[])
 	screenQuad.setInt("velocityDensityTexture", 0);
 	screenQuad.setInt("pressureTempPhiReactionTexture", 1);
 	screenQuad.setInt("curlObstaclesTexture", 2);
-
 	screenQuad.setVec3("m_size", glm::vec3(WIDTH, HEIGHT, DEPTH));
+	screenQuad.setBool("mouseDown", mouseDown);
+	screenQuad.setVec2("mousePos", mousePos);
 
 	computeShader.use();
 	computeShader.setVec3("m_size", glm::vec3(WIDTH, HEIGHT, DEPTH));
@@ -145,7 +151,7 @@ int main(int argc, char* argv[])
 	computeShader.setFloat("m_velocityDissipation", 0.995f);
 	computeShader.setFloat("m_inputRadius", 0.04f);
 	computeShader.setFloat("m_ambientTemperature", 0.0f);
-	computeShader.setVec3("m_inputPos", glm::vec3(0.5f, 0.0f, 0.5f));
+	computeShader.setVec3("m_inputPos", glm::vec3(0.5f, 0.1f, 0.5f));
 
 	// Create texture for opengl operation
 	// -----------------------------------
@@ -168,6 +174,15 @@ int main(int argc, char* argv[])
 
 		glfwPollEvents();
 
+		screenQuad.use();
+		screenQuad.setBool("mouseDown", mouseDown);
+		if (mouseDown == true) {
+			double xpos, ypos;
+			glfwGetCursorPos(window, &xpos, &ypos);
+			mousePos.x = xpos;
+			mousePos.y = ypos;
+			screenQuad.setVec2("mousePos", mousePos);
+		}
 		// update your application logic here,
 		// using deltaTime if necessary (for physics, tweening, etc.)
 
@@ -256,3 +271,13 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	// height will be significantly larger than specified on retina displays.
 	glViewport(0, 0, width, height);
 }
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+		mouseDown = true;
+	}
+	else {
+		mouseDown = false;
+	}
+}
+
