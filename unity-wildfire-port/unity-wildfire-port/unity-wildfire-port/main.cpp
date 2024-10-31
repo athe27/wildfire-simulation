@@ -153,48 +153,57 @@ int main(int argc, char* argv[])
 
 	generateMultipleTextures(3, textures, WIDTH, HEIGHT, DEPTH);
 
-	// render loop
-	// -----------
-	int fCounter = 0;
+
+
+	const double fpsLimit = 1.0 / 60.0;
+	double lastUpdateTime = 0;  // number of seconds since the last loop
+	double lastFrameTime = 0;   // number of seconds since the last frame
+
+	// This while loop repeats as fast as possible
 	while (!glfwWindowShouldClose(window))
 	{
-		// Set frame time
-		float currentFrame = glfwGetTime();
-		deltaTime = currentFrame - lastFrame;
-		lastFrame = currentFrame;
-		if (fCounter > 60) {
-			std::cout << "FPS: " << 1 / deltaTime << std::endl;
-			fCounter = 0;
-		}
-		else {
-			fCounter++;
-		}
+		double now = glfwGetTime();
+		double deltaTime = now - lastUpdateTime;
+		//std::cout << "FPS: " << 1 / deltaTime << std::endl;
 
-		computeShader.use();
-		computeShader.setFloat("iTime", currentFrame);
-
-		glDispatchCompute(WIDTH, HEIGHT, DEPTH);
-
-		// make sure writing to image has finished before read
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-		// render image to quad
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		screenQuad.use();
-
-		//set shadertoy params
-		screenQuad.setFloat("iTime", currentFrame);
-
-		int width, height;
-		glfwGetWindowSize(window, &width, &height);
-		screenQuad.setVec3("iResolution", glm::vec3(width, height, width / (float) height));
-
-		renderQuad();
-
-		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-		// -------------------------------------------------------------------------------
-		glfwSwapBuffers(window);
 		glfwPollEvents();
+
+		// update your application logic here,
+		// using deltaTime if necessary (for physics, tweening, etc.)
+
+		// This if-statement only executes once every 60th of a second
+		if ((now - lastFrameTime) >= fpsLimit)
+		{
+			// draw your frame here
+			computeShader.use();
+			computeShader.setFloat("iTime", now);
+
+			glDispatchCompute(WIDTH, HEIGHT, DEPTH);
+
+			// make sure writing to image has finished before read
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+			// render image to quad
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			screenQuad.use();
+
+			//set shadertoy params
+			screenQuad.setFloat("iTime", now);
+
+			int width, height;
+			glfwGetWindowSize(window, &width, &height);
+			screenQuad.setVec3("iResolution", glm::vec3(width, height, width / (float)height));
+
+			renderQuad();
+
+			glfwSwapBuffers(window);
+
+			// only set lastFrameTime when you actually draw something
+			lastFrameTime = now;
+		}
+
+		// set lastUpdateTime every iteration
+		lastUpdateTime = now;
 	}
 
 	// optional: de-allocate all resources once they've outlived their purpose:
