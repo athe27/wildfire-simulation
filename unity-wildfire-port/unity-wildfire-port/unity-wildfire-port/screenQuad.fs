@@ -211,7 +211,7 @@ void march2(
         float R = readPressureTempPhiReaction(voxelCoord).w;
 
         fireAlpha *= 1.0-clamp(R*stepSize*40.0, 0.0, 1.0);
-        smokeAlpha *= 1.0-clamp(D*stepSize*60.0, 0.0, 1.0);
+        smokeAlpha *= 1.0-clamp(D*stepSize*100.0, 0.0, 1.0);
         			
     	if(fireAlpha <= 0.01 && smokeAlpha <= 0.01)
         {
@@ -221,7 +221,7 @@ void march2(
         start += ds;
     }
 
-    vec4 smoke = vec4(vec3(0.5), 1) * (1.0-smokeAlpha);
+    vec4 smoke = vec4(vec3(0), 1) * (1.0-smokeAlpha);
 	vec4 fire = vec4(colormapInferno2(fireAlpha), 1.0) * (1.0-fireAlpha);
 
     color = fire;

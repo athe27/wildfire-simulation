@@ -156,6 +156,10 @@ int main(int argc, char* argv[])
 	m_inputPos[0] = 0.5;
 	m_inputPos[1] = 0.1;
 	m_inputPos[2] = 0.5;
+	float m_wind[3];
+	m_wind[0] = 0;
+	m_wind[1] = 0;
+	m_wind[2] = 0;
 
 	computeShader.use();
 	computeShader.setVec3("m_size", glm::vec3(WIDTH, HEIGHT, DEPTH));
@@ -175,6 +179,7 @@ int main(int argc, char* argv[])
 	computeShader.setFloat("m_inputRadius", m_inputRadius);
 	computeShader.setFloat("m_ambientTemperature", m_ambientTemperature);
 	computeShader.setVec3("m_inputPos", glm::vec3(m_inputPos[0], m_inputPos[1], m_inputPos[2]));
+	computeShader.setVec3("m_wind", glm::vec3(m_inputPos[0], m_inputPos[1], m_inputPos[2]));
 
 	// Create texture for opengl operation
 	// -----------------------------------
@@ -243,6 +248,7 @@ int main(int argc, char* argv[])
 			ImGui::InputFloat("input radius", &m_inputRadius);
 			ImGui::InputFloat("ambient temperature", &m_ambientTemperature);
 			ImGui::InputFloat3("input position", m_inputPos);
+			ImGui::InputFloat3("wind", m_wind);
 			ImGui::End();
 
 			// draw your frame here
@@ -265,6 +271,7 @@ int main(int argc, char* argv[])
 			computeShader.setFloat("m_inputRadius", m_inputRadius);
 			computeShader.setFloat("m_ambientTemperature", m_ambientTemperature);
 			computeShader.setVec3("m_inputPos", glm::vec3(m_inputPos[0], m_inputPos[1], m_inputPos[2]));
+			computeShader.setVec3("m_wind", glm::vec3(m_wind[0], m_wind[1], m_wind[2]));
 
 			glDispatchCompute(WIDTH, HEIGHT, DEPTH);
 

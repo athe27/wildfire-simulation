@@ -31,6 +31,7 @@ uniform float m_velocityDissipation;
 uniform float m_inputRadius;
 uniform float m_ambientTemperature;
 uniform vec3 m_inputPos;
+uniform vec3 m_wind;
 
 // ----------------------------------------------------------------------------
 //
@@ -206,6 +207,16 @@ void ApplyBuoyancy(vec3 voxelCoord, inout vec4 velocityDensityData, in vec4 pres
     {
         V += (dt * (T - m_ambientTemperature) * m_densityBuoyancy - D * m_densityWeight) * vec3(0, 1, 0);
     }
+
+    velocityDensityData = vec4(V, D);
+}
+
+void ApplyWind(vec3 voxelCoord, inout vec4 velocityDensityData)
+{
+    float D = velocityDensityData.w;
+    vec3 V = velocityDensityData.xyz;
+
+    V += dt * m_wind;
 
     velocityDensityData = vec4(V, D);
 }
@@ -474,6 +485,7 @@ void main()
     AdvectDensityVelocity(voxelCoord, curlObstaclesData, velocityDensityData);
     AdvectReactionTemperature(voxelCoord, pressureTempPhiReactionData, curlObstaclesData, velocityDensityData);
     ApplyBuoyancy(voxelCoord, velocityDensityData, pressureTempPhiReactionData);
+    ApplyWind(voxelCoord, velocityDensityData);
     ApplyImpulse(voxelCoord, m_reactionAmount, 3, pressureTempPhiReactionData);
     ApplyImpulse(voxelCoord, m_temperatureAmount, 1, pressureTempPhiReactionData);
     ApplyExtinguishmentImpulse(voxelCoord, pressureTempPhiReactionData, velocityDensityData);
