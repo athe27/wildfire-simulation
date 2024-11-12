@@ -33,6 +33,18 @@ uniform float m_ambientTemperature;
 uniform vec3 m_inputPos;
 uniform vec3 m_wind;
 
+// Permutation table for random gradient vectors
+const int P[] = int[](
+    151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
+    140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
+    247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32,
+    57, 177, 33, 88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175,
+    74, 165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122,
+    60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40, 244, 102, 143, 54,
+    65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18, 195,
+    30, 42, 102, 198, 152, 98, 113, 219, 122, 138, 224, 14, 184, 197, 5, 83
+);
+
 // ----------------------------------------------------------------------------
 //
 // functions
@@ -211,12 +223,87 @@ void ApplyBuoyancy(vec3 voxelCoord, inout vec4 velocityDensityData, in vec4 pres
     velocityDensityData = vec4(V, D);
 }
 
+// Permutation table lookup (helps create the gradient hash)
+int permute(int x)
+{
+    return P[x % 256];
+}
+
+// Gradients function (2D)
+float grad(int hash, float x, float y, float z, float w)
+{
+    int h = hash & 31; // Extract lower 5 bits of the hash to determine the gradient
+    float u = h < 24 ? x : y;
+    float v = h < 16 ? y : z;
+    float t = h < 8 ? z : w;
+
+    // The 32 gradients are mapped to a unit vector, for simplicity we use some sign-based tricks
+    return (bool((h & 1) == 0) ? -u : u) + (bool((h & 2) == 0) ? -v : v) + (bool((h & 4) == 0) ? -t : t);
+}
+
+// Fade function (smooth interpolation)
+float fade(float t)
+{
+    return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+// Linear interpolation
+float lerp(float a, float b, float t)
+{
+    return a + t * (b - a);
+}
+
+// Compute 2D Perlin Noise
+float perlinNoise(vec4 p)
+{
+    // Grid cell coordinates in 4D space
+    vec4 i = floor(p);
+    vec4 fVector = fract(p);
+
+    // Hashing and gradient lookup for all surrounding grid points
+    int a = permute(int(i.x) + permute(int(i.y) + permute(int(i.z) + permute(int(i.w)))));
+    int b = permute(int(i.x + 1) + permute(int(i.y) + permute(int(i.z) + permute(int(i.w)))));
+    int c = permute(int(i.x) + permute(int(i.y + 1) + permute(int(i.z) + permute(int(i.w)))));
+    int d = permute(int(i.x + 1) + permute(int(i.y + 1) + permute(int(i.z) + permute(int(i.w)))));
+    int e = permute(int(i.x) + permute(int(i.y) + permute(int(i.z + 1) + permute(int(i.w)))));
+    int f = permute(int(i.x + 1) + permute(int(i.y) + permute(int(i.z + 1) + permute(int(i.w)))));
+    int g = permute(int(i.x) + permute(int(i.y + 1) + permute(int(i.z + 1) + permute(int(i.w)))));
+    int h = permute(int(i.x + 1) + permute(int(i.y + 1) + permute(int(i.z + 1) + permute(int(i.w)))));
+
+    // Gradient calculations for each corner of the grid cell
+    float g1 = grad(a, fVector.x, fVector.y, fVector.z, fVector.w);
+    float g2 = grad(b, fVector.x - 1.0, fVector.y, fVector.z, fVector.w);
+    float g3 = grad(c, fVector.x, fVector.y - 1.0, fVector.z, fVector.w);
+    float g4 = grad(d, fVector.x - 1.0, fVector.y - 1.0, fVector.z, fVector.w);
+    float g5 = grad(e, fVector.x, fVector.y, fVector.z - 1.0, fVector.w);
+    float g6 = grad(f, fVector.x - 1.0, fVector.y, fVector.z - 1.0, fVector.w);
+    float g7 = grad(g, fVector.x, fVector.y - 1.0, fVector.z - 1.0, fVector.w);
+    float g8 = grad(h, fVector.x - 1.0, fVector.y - 1.0, fVector.z - 1.0, fVector.w);
+
+    // Interpolation
+    vec4 t = vec4(fade(fVector.x), fade(fVector.y), fade(fVector.z), fade(fVector.w));
+    float lerpX1 = lerp(g1, g2, t.x);
+    float lerpX2 = lerp(g3, g4, t.x);
+    float lerpX3 = lerp(g5, g6, t.x);
+    float lerpX4 = lerp(g7, g8, t.x);
+
+    float lerpY1 = lerp(lerpX1, lerpX2, t.y);
+    float lerpY2 = lerp(lerpX3, lerpX4, t.y);
+
+    return lerp(lerpY1, lerpY2, t.z);
+
+}
+
 void ApplyWind(vec3 voxelCoord, inout vec4 velocityDensityData)
 {
     float D = velocityDensityData.w;
     vec3 V = velocityDensityData.xyz;
 
-    V += dt * m_wind;
+    vec4 velocity = vec4(V.x, V.y, V.z, dt);
+    float perlin_noise = perlinNoise(velocity);
+
+    //V += dt * m_wind;
+    V += perlin_noise * m_wind;
 
     velocityDensityData = vec4(V, D);
 }
