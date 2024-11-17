@@ -34,6 +34,7 @@ float lastFrame = 0.0f; // time of last frame
 
 bool mouseDown = false;
 glm::vec2 mousePos = glm::vec2(0.0f, 0.0f);
+glm::vec2 gustPosition = glm::vec2(0.f, 0.f);
 
 GLboolean generateMultipleTextures(GLsizei count, GLuint* textures,
 	GLsizei width, GLsizei height, GLsizei depth) {
@@ -156,10 +157,9 @@ int main(int argc, char* argv[])
 	m_inputPos[0] = 0.5;
 	m_inputPos[1] = 0.1;
 	m_inputPos[2] = 0.5;
-	float m_wind[3];
-	m_wind[0] = 0;
-	m_wind[1] = 0;
-	m_wind[2] = 0;
+
+	float m_windNoiseFrequency = 0.1;
+	float m_windSpeedFrequency = 0.2f;
 
 	computeShader.use();
 	computeShader.setVec3("m_size", glm::vec3(WIDTH, HEIGHT, DEPTH));
@@ -179,7 +179,8 @@ int main(int argc, char* argv[])
 	computeShader.setFloat("m_inputRadius", m_inputRadius);
 	computeShader.setFloat("m_ambientTemperature", m_ambientTemperature);
 	computeShader.setVec3("m_inputPos", glm::vec3(m_inputPos[0], m_inputPos[1], m_inputPos[2]));
-	computeShader.setVec3("m_wind", glm::vec3(m_inputPos[0], m_inputPos[1], m_inputPos[2]));
+	computeShader.setFloat("m_windNoiseFrequency", m_windNoiseFrequency);
+	computeShader.setFloat("m_windSpeedFrequency", m_windSpeedFrequency);
 
 	// Create texture for opengl operation
 	// -----------------------------------
@@ -248,7 +249,8 @@ int main(int argc, char* argv[])
 			ImGui::InputFloat("input radius", &m_inputRadius);
 			ImGui::InputFloat("ambient temperature", &m_ambientTemperature);
 			ImGui::InputFloat3("input position", m_inputPos);
-			ImGui::InputFloat3("wind", m_wind);
+			ImGui::InputFloat("wind noise frequency", &m_windNoiseFrequency);
+			ImGui::InputFloat("wind speed frequency", &m_windSpeedFrequency);
 			ImGui::End();
 
 			// draw your frame here
@@ -271,7 +273,12 @@ int main(int argc, char* argv[])
 			computeShader.setFloat("m_inputRadius", m_inputRadius);
 			computeShader.setFloat("m_ambientTemperature", m_ambientTemperature);
 			computeShader.setVec3("m_inputPos", glm::vec3(m_inputPos[0], m_inputPos[1], m_inputPos[2]));
-			computeShader.setVec3("m_wind", glm::vec3(m_wind[0], m_wind[1], m_wind[2]));
+			computeShader.setBool("gustActive", mouseDown);
+			computeShader.setVec2("gustPosition", gustPosition);
+			computeShader.setFloat("gustStrength", m_inputPos[0]);
+			computeShader.setFloat("m_windNoiseFrequency", m_windNoiseFrequency);
+			computeShader.setFloat("m_windSpeedFrequency", m_windSpeedFrequency);
+
 
 			glDispatchCompute(WIDTH, HEIGHT, DEPTH);
 
@@ -375,6 +382,17 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
 		mouseDown = true;
+
+		double xpos, ypos;
+		glfwGetCursorPos(window, &xpos, &ypos);
+
+		// Convert screen coordinates to simulation coordinates
+		int width, height;
+		glfwGetWindowSize(window, &width, &height);
+		gustPosition = glm::vec2(
+			(xpos / width) * 2.0f - 1.0f, // Normalize to [-1, 1] for X
+			1.0f - (ypos / height) * 2.0f  // Normalize to [-1, 1] for Y
+		);
 	}
 	else {
 		mouseDown = false;

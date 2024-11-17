@@ -31,10 +31,17 @@ uniform float m_velocityDissipation;
 uniform float m_inputRadius;
 uniform float m_ambientTemperature;
 uniform vec3 m_inputPos;
-uniform vec3 m_wind;
+
+// Wind Gust Based on Mouse Input
+uniform bool gustActive;
+uniform vec2 gustPosition;
+uniform float gustStrength;
+
+uniform float m_windNoiseFrequency;
+uniform float m_windSpeedFrequency;
 
 // Permutation table for random gradient vectors
-const int P[] = int[](
+const int perm[] = int[](
     151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
     140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
     247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32,
@@ -226,19 +233,16 @@ void ApplyBuoyancy(vec3 voxelCoord, inout vec4 velocityDensityData, in vec4 pres
 // Permutation table lookup (helps create the gradient hash)
 int permute(int x)
 {
-    return P[x % 256];
+    return perm[x % 256];
 }
 
 // Gradients function (2D)
-float grad(int hash, float x, float y, float z, float w)
+float grad(int hash, float x, float y)
 {
-    int h = hash & 31; // Extract lower 5 bits of the hash to determine the gradient
-    float u = h < 24 ? x : y;
-    float v = h < 16 ? y : z;
-    float t = h < 8 ? z : w;
-
-    // The 32 gradients are mapped to a unit vector, for simplicity we use some sign-based tricks
-    return (bool((h & 1) == 0) ? -u : u) + (bool((h & 2) == 0) ? -v : v) + (bool((h & 4) == 0) ? -t : t);
+    int h = hash & 15;
+    float u = h < 8 ? x : y;
+    float v = h < 4 ? y : (h == 12 || h == 14 ? x : 0.0);
+    return (int((h & 1)) == 0 ? u : -u) + (int((h & 2)) == 0 ? v : -v);
 }
 
 // Fade function (smooth interpolation)
@@ -254,43 +258,23 @@ float lerp(float a, float b, float t)
 }
 
 // Compute 2D Perlin Noise
-float perlinNoise(vec4 p)
+float perlinNoise(vec2 p)
 {
-    // Grid cell coordinates in 4D space
-    vec4 i = floor(p);
-    vec4 fVector = fract(p);
+    vec2 pi = floor(p);
+    vec2 pf = fract(p);
 
-    // Hashing and gradient lookup for all surrounding grid points
-    int a = permute(int(i.x) + permute(int(i.y) + permute(int(i.z) + permute(int(i.w)))));
-    int b = permute(int(i.x + 1) + permute(int(i.y) + permute(int(i.z) + permute(int(i.w)))));
-    int c = permute(int(i.x) + permute(int(i.y + 1) + permute(int(i.z) + permute(int(i.w)))));
-    int d = permute(int(i.x + 1) + permute(int(i.y + 1) + permute(int(i.z) + permute(int(i.w)))));
-    int e = permute(int(i.x) + permute(int(i.y) + permute(int(i.z + 1) + permute(int(i.w)))));
-    int f = permute(int(i.x + 1) + permute(int(i.y) + permute(int(i.z + 1) + permute(int(i.w)))));
-    int g = permute(int(i.x) + permute(int(i.y + 1) + permute(int(i.z + 1) + permute(int(i.w)))));
-    int h = permute(int(i.x + 1) + permute(int(i.y + 1) + permute(int(i.z + 1) + permute(int(i.w)))));
+    int X = int(mod(pi.x, 256.0));
+    int Y = int(mod(pi.y, 256.0));
 
-    // Gradient calculations for each corner of the grid cell
-    float g1 = grad(a, fVector.x, fVector.y, fVector.z, fVector.w);
-    float g2 = grad(b, fVector.x - 1.0, fVector.y, fVector.z, fVector.w);
-    float g3 = grad(c, fVector.x, fVector.y - 1.0, fVector.z, fVector.w);
-    float g4 = grad(d, fVector.x - 1.0, fVector.y - 1.0, fVector.z, fVector.w);
-    float g5 = grad(e, fVector.x, fVector.y, fVector.z - 1.0, fVector.w);
-    float g6 = grad(f, fVector.x - 1.0, fVector.y, fVector.z - 1.0, fVector.w);
-    float g7 = grad(g, fVector.x, fVector.y - 1.0, fVector.z - 1.0, fVector.w);
-    float g8 = grad(h, fVector.x - 1.0, fVector.y - 1.0, fVector.z - 1.0, fVector.w);
+    int A = perm[X] + Y;
+    int B = perm[X + 1] + Y;
 
-    // Interpolation
-    vec4 t = vec4(fade(fVector.x), fade(fVector.y), fade(fVector.z), fade(fVector.w));
-    float lerpX1 = lerp(g1, g2, t.x);
-    float lerpX2 = lerp(g3, g4, t.x);
-    float lerpX3 = lerp(g5, g6, t.x);
-    float lerpX4 = lerp(g7, g8, t.x);
-
-    float lerpY1 = lerp(lerpX1, lerpX2, t.y);
-    float lerpY2 = lerp(lerpX3, lerpX4, t.y);
-
-    return lerp(lerpY1, lerpY2, t.z);
+    float res = lerp(
+        lerp(grad(perm[A], pf.x, pf.y), grad(perm[B], pf.x - 1.0, pf.y), fade(pf.x)),
+        lerp(grad(perm[A + 1], pf.x, pf.y - 1.0), grad(perm[B + 1], pf.x - 1.0, pf.y - 1.0), fade(pf.x)),
+        fade(pf.y)
+    );
+    return res;
 
 }
 
@@ -299,11 +283,25 @@ void ApplyWind(vec3 voxelCoord, inout vec4 velocityDensityData)
     float D = velocityDensityData.w;
     vec3 V = velocityDensityData.xyz;
 
-    vec4 velocity = vec4(V.x, V.y, V.z, dt);
-    float perlin_noise = perlinNoise(velocity);
+    // Current work for wind gust at mouse input
+    if (gustActive)
+    {
+        //vec2 toGust = normalize(vec2(voxelCoord.x, voxelCoord.y) - gustPosition);
+        //float distance = length(vec2(voxelCoord.x, voxelCoord.y) - gustPosition);
+        //float influence = max(0.0, 1.0 - distance);
+        //vec2 gustForce = toGust * gustStrength * influence;
+        //V.z += gustForce.x;
+        //V.y = gustForce.y;
+    }
 
-    //V += dt * m_wind;
-    V += perlin_noise * m_wind;
+    vec2 noiseInput = (vec2(voxelCoord.x, voxelCoord.y) * m_windNoiseFrequency + iTime);
+
+    float windX = perlinNoise(vec2(noiseInput.x, 0.f));
+    float windY = perlinNoise(vec2(0.f, noiseInput.y));
+    vec2 wind = normalize(vec2(windX, windY)) * m_windSpeedFrequency;
+
+    V.z += wind.x;
+    V.y += wind.y;
 
     velocityDensityData = vec4(V, D);
 }
