@@ -15,6 +15,8 @@
 
 #include <iostream>
 
+#include "WildFireSimulation.h"
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void renderQuad();
@@ -207,6 +209,9 @@ int main(int argc, char* argv[])
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 430");
 
+	WildFireSimulation* fireSimulation = new WildFireSimulation();
+	fireSimulation->InitializeWildFireFimulation();
+
 	// This while loop repeats as fast as possible
 	while (!glfwWindowShouldClose(window))
 	{
@@ -229,6 +234,9 @@ int main(int argc, char* argv[])
 			else {
 				++frameCounter;
 			}
+
+			fireSimulation->UpdateWildFireSimulation();
+
 			ImGui_ImplOpenGL3_NewFrame();
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();
