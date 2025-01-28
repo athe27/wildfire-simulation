@@ -23,11 +23,20 @@ void WildFireSimulation::InitializeWildFireFimulation()
 	currentTickCounter = 0;
 }
 
-void WildFireSimulation::UpdateWildFireSimulation()
+void WildFireSimulation::UpdateWildFireSimulation(float dt)
 {
+	// Create a temporary grid to store the new states
+	WildFireGridCell newGrid[GRID_SIZE_X][GRID_SIZE_Y];
+
+	// Copy the current grid to the new grid
+	for (int y = 0; y < GRID_SIZE_Y; y++) {
+		for (int x = 0; x < GRID_SIZE_X; x++) {
+			newGrid[x][y] = grid[x][y];
+		}
+	}
+
 	// Go through all the cells that need to be updated. We only want to update/query half the cells each update. Thus, we will manage a tick counter
 	// that will determine which cells should be updated. We do this so that we can save on some performance/CPU cycles.
-
 	for (int index_Y = 0; index_Y < GRID_SIZE_Y; index_Y++) {
 		for (int index_X = 0; index_X < GRID_SIZE_X; index_X++) {
 			WildFireGridCell& ThisGridCell = grid[index_Y][index_X];
@@ -40,24 +49,55 @@ void WildFireSimulation::UpdateWildFireSimulation()
 			switch (ThisGridCell.CurrentState) {
 			case EGridCellState::NOT_ON_FIRE:
 			{
-				// ToDo: Implement simulation for a cell not on fire.
+				// Check if this cell should catch fire based on neighbors
+				IntVector2D location = { index_X, index_Y };
+				std::vector<WildFireGridCell> onFireNeighbors =
+					FindOnFireNeighboringGridCells(location);
+
+				// If we have fire neighbors, check probability to catch fire
+				if (!onFireNeighbors.empty()) {
+					float flammableProb = 0.f;
+					switch (ThisGridCell.Material) {
+					case EGridCellMaterial::GRASS:
+						flammableProb = FLAMMABLE_PROBABILITY_FOR_GRASS;
+						break;
+					case EGridCellMaterial::WATER:
+						flammableProb = FLAMMABLE_PROBABILITY_FOR_WATER;
+						break;
+					case EGridCellMaterial::BEDROCK:
+						flammableProb = FLAMMABLE_PROBABILITY_FOR_BEDROCK;
+						break;
+					}
+
+					// Generate random probability between 0 and 1
+					float randomProb = static_cast<float>(rand()) / RAND_MAX;
+					if (randomProb < flammableProb) {
+						newGrid[index_X][index_Y].CurrentState = EGridCellState::ON_FIRE;
+					}
+				}
 			}
 			break;
 			case EGridCellState::ON_FIRE:
 			{
-				// ToDo: Implement simulation for a cell not on fire.
-				// ToDo: Check if any of my neighbors are not on fire and should be put on fire using the random probability check.
+				// Burning cells turn to destroyed after one tick
+				newGrid[index_X][index_Y].CurrentState = EGridCellState::DESTROYED;
 			}
 			break;
 			case EGridCellState::DESTROYED:
 			{
-				// ToDo: Implement simulation for a cell destroyed by fire.
+				// Do nothing
 			}
 			break;
 			}
 		}
 	}
 
+	// Update the main grid with the new states
+	for (int y = 0; y < GRID_SIZE_Y; y++) {
+		for (int x = 0; x < GRID_SIZE_X; x++) {
+			grid[x][y] = newGrid[x][y];
+		}
+	}
 
 	// Reset the tick counter if it exceeds the maximum possible value of an integer on this system.
 	if (currentTickCounter >= INT_MAX) {

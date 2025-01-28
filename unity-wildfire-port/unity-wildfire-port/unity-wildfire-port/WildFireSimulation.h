@@ -66,7 +66,7 @@ public:
 	void InitializeWildFireFimulation();
 
 	// ToDo: We may need to pass over the DeltaTime if we have timers or anything like that.
-	void UpdateWildFireSimulation();
+	void UpdateWildFireSimulation(float dt);
 
 	// Searches around a given grid cell location with the provided search size for any cells that have the given shape.
 	std::vector<WildFireGridCell> FindNeighboringGridCellsByState(IntVector2D LocationToCheck, EGridCellState StateToCheck, int SearchSize = 1);
