@@ -235,7 +235,7 @@ int main(int argc, char* argv[])
 				++frameCounter;
 			}
 
-			fireSimulation->UpdateWildFireSimulation();
+			fireSimulation->UpdateWildFireSimulation(1.f/60.f);
 
 			ImGui_ImplOpenGL3_NewFrame();
 			ImGui_ImplGlfw_NewFrame();

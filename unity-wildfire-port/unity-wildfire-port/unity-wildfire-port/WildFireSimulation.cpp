@@ -25,8 +25,11 @@ void WildFireSimulation::InitializeWildFireFimulation()
 
 void WildFireSimulation::UpdateWildFireSimulation(float dt)
 {
-	// Create a temporary grid to store the new states
-	WildFireGridCell newGrid[GRID_SIZE_X][GRID_SIZE_Y];
+	// Allocate newGrid on the heap
+	WildFireGridCell** newGrid = new WildFireGridCell * [GRID_SIZE_X];
+	for (int x = 0; x < GRID_SIZE_X; x++) {
+		newGrid[x] = new WildFireGridCell[GRID_SIZE_Y];
+	}
 
 	// Copy the current grid to the new grid
 	for (int y = 0; y < GRID_SIZE_Y; y++) {
@@ -42,9 +45,9 @@ void WildFireSimulation::UpdateWildFireSimulation(float dt)
 			WildFireGridCell& ThisGridCell = grid[index_Y][index_X];
 
 			// Check if this grid cell needs to be updated this tick.
-			if ((ThisGridCell.gridCellID % 2) != (currentTickCounter % 2)) {
+			/*if ((ThisGridCell.gridCellID % 2) != (currentTickCounter % 2)) {
 				continue;
-			}
+			}*/
 
 			switch (ThisGridCell.CurrentState) {
 			case EGridCellState::NOT_ON_FIRE:
@@ -98,6 +101,12 @@ void WildFireSimulation::UpdateWildFireSimulation(float dt)
 			grid[x][y] = newGrid[x][y];
 		}
 	}
+
+	// Free memory (deallocate heap memory)
+	for (int x = 0; x < GRID_SIZE_X; x++) {
+		delete[] newGrid[x];
+	}
+	delete[] newGrid;
 
 	// Reset the tick counter if it exceeds the maximum possible value of an integer on this system.
 	if (currentTickCounter >= INT_MAX) {
