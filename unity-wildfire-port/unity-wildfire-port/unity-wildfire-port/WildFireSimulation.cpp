@@ -1,6 +1,66 @@
 #include <climits>
 #include "wildfireSimulation.h"
 
+const std::vector<std::string> WildFireSimulation::windDirections = {
+	"calm", "S", "N", "W", "E", "SW", "SE", "NW", "NE"
+};
+
+void WildFireSimulation::InitializeWindOffsets() {
+	// Initialize all wind direction offsets
+	windOffsets["calm"] = {
+		{-1,-1}, {-1,0}, {-1,1}, {0,-1}, {0,1}, {1,-1}, {1,0}, {1,1}
+	};
+	windOffsets["N"] = {
+		{-1,-1}, {-1,0}, {-1,1}, {0,-1}, {0,1}
+	};
+	windOffsets["S"] = {
+		{0,-1}, {0,1}, {1,-1}, {1,0}, {1,1}
+	};
+	windOffsets["E"] = {
+		{-1,0}, {-1,1}, {0,1}, {1,0}, {1,1}
+	};
+	windOffsets["W"] = {
+		{-1,-1}, {-1,0}, {0,-1}, {1,-1}, {1,0}
+	};
+	windOffsets["NE"] = {
+		{-1,0}, {-1,1}, {0,1}
+	};
+	windOffsets["NW"] = {
+		{-1,-1}, {-1,0}, {0,-1}
+	};
+	windOffsets["SE"] = {
+		{0,1}, {1,0}, {1,1}
+	};
+	windOffsets["SW"] = {
+		{0,-1}, {1,-1}, {1,0}
+	};
+
+	UpdateWindDirection();
+}
+
+void WildFireSimulation::UpdateWindDirection() {
+	// Randomly select a wind direction
+	std::uniform_int_distribution<> dis(0, windDirections.size() - 1);
+	currentWind = windDirections[dis(gen)];
+}
+
+bool WildFireSimulation::CheckWindNeighbors(IntVector2D location) {
+	const auto& offsets = windOffsets[currentWind];
+
+	for (const auto& offset : offsets) {
+		int ni = location.X + offset.X;
+		int nj = location.Y + offset.Y;
+
+		// Check bounds
+		if (ni >= 0 && nj >= 0 && ni < GRID_SIZE_X && nj < GRID_SIZE_Y) {
+			if (grid[ni][nj].CurrentState == EGridCellState::ON_FIRE) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 int SimulationAdd()
 {
 	return 0;
@@ -54,11 +114,11 @@ void WildFireSimulation::UpdateWildFireSimulation(float dt)
 			{
 				// Check if this cell should catch fire based on neighbors
 				IntVector2D location = { index_X, index_Y };
-				std::vector<WildFireGridCell> onFireNeighbors =
-					FindOnFireNeighboringGridCells(location);
+				bool neighborOnFire =
+					CheckWindNeighbors(location);
 
 				// If we have fire neighbors, check probability to catch fire
-				if (!onFireNeighbors.empty()) {
+				if (neighborOnFire) {
 					float flammableProb = 0.f;
 					switch (ThisGridCell.Material) {
 					case EGridCellMaterial::GRASS:
