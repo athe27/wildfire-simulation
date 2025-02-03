@@ -44,10 +44,10 @@ class WildFireSimulation
 {
 private:
 	// The size of the grid cell array in the X-dimension
-	static constexpr int GRID_SIZE_X = 256;
+	static constexpr int GRID_SIZE_X = 64;
 
 	// The size of the grid cell array in the Y-dimension
-	static constexpr int GRID_SIZE_Y = 256;
+	static constexpr int GRID_SIZE_Y = 64;
 
 	static constexpr float FLAMMABLE_PROBABILITY_FOR_GRASS = 0.75f;
 	static constexpr float FLAMMABLE_PROBABILITY_FOR_WATER = 0.f;

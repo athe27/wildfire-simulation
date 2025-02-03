@@ -92,6 +92,9 @@ void WildFireSimulation::InitializeWildFireFimulation()
 		}
 	}
 
+	// Set the initial grid cell on fire.
+	grid[GRID_SIZE_X / 2][GRID_SIZE_Y / 2].CurrentState = EGridCellState::ON_FIRE;
+
 	currentTickCounter = 0;
 }
 
