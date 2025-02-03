@@ -69,6 +69,7 @@ private:
 	static const std::vector<std::string> windDirections;
 	std::map<std::string, std::vector<IntVector2D>> windOffsets;
 
+	float temperatures[24];
 	// Random number generation
 	std::random_device rd;
 	std::mt19937 gen;
@@ -77,6 +78,9 @@ private:
 	void InitializeWindOffsets();
 	void UpdateWindDirection();
 	bool CheckWindNeighbors(IntVector2D location);
+	
+	// Helper function for hourly temperature
+	void GenerateTemperatures();
 
 public:
 
