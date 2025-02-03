@@ -34,6 +34,9 @@ const unsigned int HEIGHT = 128;
 float deltaTime = 0.0f; // time between current frame and last frame
 float lastFrame = 0.0f; // time of last frame
 
+int numberOfUpdatesUntilNextGridImageWrite = 0;
+const unsigned int UPDATES_BETWEEN_GRID_IMAGE_WRITES = 30;
+
 bool mouseDown = false;
 glm::vec2 mousePos = glm::vec2(0.0f, 0.0f);
 glm::vec2 gustPosition = glm::vec2(0.f, 0.f);
@@ -236,6 +239,11 @@ int main(int argc, char* argv[])
 			}
 
 			fireSimulation->UpdateWildFireSimulation(1.f/60.f);
+			
+			if ((++numberOfUpdatesUntilNextGridImageWrite) >= UPDATES_BETWEEN_GRID_IMAGE_WRITES) {
+				fireSimulation->WriteGridResultsToImage();
+				numberOfUpdatesUntilNextGridImageWrite = 0;
+			}
 
 			ImGui_ImplOpenGL3_NewFrame();
 			ImGui_ImplGlfw_NewFrame();
