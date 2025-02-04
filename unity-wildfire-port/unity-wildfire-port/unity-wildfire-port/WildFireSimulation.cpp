@@ -91,11 +91,6 @@ void WildFireSimulation::GenerateTemperatures() {
 	}
 }
 
-int SimulationAdd()
-{
-	return 0;
-}
-
 void WildFireSimulation::InitializeWildFireFimulation()
 {
 	// Initialize the grid with default values.
