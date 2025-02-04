@@ -1,4 +1,5 @@
 #define _CRT_SECURE_NO_WARNINGS
+#define _USE_MATH_DEFINES
 #include <climits>
 #include <vector>
 #include <iostream>
@@ -73,6 +74,23 @@ bool WildFireSimulation::CheckWindNeighbors(IntVector2D location) {
 	return false;
 }
 
+void WildFireSimulation::GenerateTemperatures() {
+	float average_temp = 20.0f;
+	float amplitude = 5.0f;
+	float noise_level = 2.0f;
+	int hours_in_day = 24;
+
+	std::default_random_engine generator;
+	std::normal_distribution<float> noise(0.0f, noise_level);
+	for (int hour = 0; hour < hours_in_day; hour++) {
+		// Generate the temperature based on the sinusoidal pattern
+		float temp = average_temp + amplitude * std::sin(2 * M_PI * hour / 24 - M_PI / 2);
+		// Add random noise
+		temp += noise(generator);
+		temperatures[hour] = temp;
+	}
+}
+
 int SimulationAdd()
 {
 	return 0;
@@ -96,6 +114,7 @@ void WildFireSimulation::InitializeWildFireFimulation()
 	grid[GRID_SIZE_X / 2][GRID_SIZE_Y / 2].CurrentState = EGridCellState::ON_FIRE;
 
 	currentTickCounter = 0;
+	GenerateTemperatures();
 }
 
 std::string getCurrentTimestamp() {
@@ -175,6 +194,10 @@ void WildFireSimulation::UpdateWildFireSimulation(float dt)
 		}
 	}
 
+	int hourOfDay = currentTickCounter % 24;
+	float currentTemperature = temperatures[hourOfDay];
+	bool isHot = currentTemperature > 25.0f;
+
 	// Go through all the cells that need to be updated. We only want to update/query half the cells each update. Thus, we will manage a tick counter
 	// that will determine which cells should be updated. We do this so that we can save on some performance/CPU cycles.
 	for (int index_Y = 0; index_Y < GRID_SIZE_Y; index_Y++) {
@@ -211,6 +234,9 @@ void WildFireSimulation::UpdateWildFireSimulation(float dt)
 
 					// Generate random probability between 0 and 1
 					float randomProb = static_cast<float>(rand()) / RAND_MAX;
+					if (isHot) {
+						randomProb *= 2;
+					}
 					if (randomProb < flammableProb) {
 						newGrid[index_X][index_Y].CurrentState = EGridCellState::ON_FIRE;
 					}
