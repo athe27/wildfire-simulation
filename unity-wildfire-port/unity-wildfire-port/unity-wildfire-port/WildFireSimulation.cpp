@@ -111,7 +111,7 @@ void WildFireSimulation::InitializeWildFireFimulation()
 	}
 
 	// Set the initial grid cell on fire.
-	grid[GRID_SIZE_X / 2][GRID_SIZE_Y / 2].CurrentState = EGridCellState::ON_FIRE;
+	// grid[GRID_SIZE_X / 2][GRID_SIZE_Y / 2].CurrentState = EGridCellState::ON_FIRE;
 
 	currentTickCounter = 0;
 	GenerateTemperatures();
@@ -202,7 +202,7 @@ void WildFireSimulation::UpdateWildFireSimulation(float dt)
 	// that will determine which cells should be updated. We do this so that we can save on some performance/CPU cycles.
 	for (int index_Y = 0; index_Y < GRID_SIZE_Y; index_Y++) {
 		for (int index_X = 0; index_X < GRID_SIZE_X; index_X++) {
-			WildFireGridCell& ThisGridCell = grid[index_Y][index_X];
+			WildFireGridCell& ThisGridCell = grid[index_X][index_Y];
 
 			// Check if this grid cell needs to be updated this tick.
 			/*if ((ThisGridCell.gridCellID % 2) != (currentTickCounter % 2)) {
@@ -217,8 +217,10 @@ void WildFireSimulation::UpdateWildFireSimulation(float dt)
 				bool neighborOnFire =
 					CheckWindNeighbors(location);
 
-				// If we have fire neighbors, check probability to catch fire
-				if (neighborOnFire) {
+				// If we have fire neighbors or random fire can start, check probability to catch fire
+				float fireCatchProb = static_cast<float>(rand()) / RAND_MAX;
+
+				if (neighborOnFire || FIRE_PROB > fireCatchProb) {
 					float flammableProb = 0.f;
 					switch (ThisGridCell.Material) {
 					case EGridCellMaterial::GRASS:
@@ -237,7 +239,7 @@ void WildFireSimulation::UpdateWildFireSimulation(float dt)
 					if (isHot) {
 						randomProb *= 2;
 					}
-					if (randomProb < flammableProb) {
+					if (flammableProb > randomProb) {
 						newGrid[index_X][index_Y].CurrentState = EGridCellState::ON_FIRE;
 					}
 				}

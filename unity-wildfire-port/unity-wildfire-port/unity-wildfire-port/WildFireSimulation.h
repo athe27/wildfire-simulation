@@ -49,6 +49,8 @@ private:
 	// The size of the grid cell array in the Y-dimension
 	static constexpr int GRID_SIZE_Y = 64;
 
+	static constexpr float FIRE_PROB = 0.01f;
+
 	static constexpr float FLAMMABLE_PROBABILITY_FOR_GRASS = 0.75f;
 	static constexpr float FLAMMABLE_PROBABILITY_FOR_WATER = 0.f;
 	static constexpr float FLAMMABLE_PROBABILITY_FOR_BEDROCK = 0.1f;

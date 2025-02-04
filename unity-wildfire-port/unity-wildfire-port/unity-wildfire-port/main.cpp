@@ -238,8 +238,8 @@ int main(int argc, char* argv[])
 				++frameCounter;
 			}
 
-			fireSimulation->UpdateWildFireSimulation(1.f/60.f);
-			
+			fireSimulation->UpdateWildFireSimulation(1.f / 60.f);
+
 			if ((++numberOfUpdatesUntilNextGridImageWrite) >= UPDATES_BETWEEN_GRID_IMAGE_WRITES) {
 				fireSimulation->WriteGridResultsToImage();
 				numberOfUpdatesUntilNextGridImageWrite = 0;
