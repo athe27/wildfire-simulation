@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <cmath>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
@@ -91,6 +92,11 @@ void WildFireSimulation::GenerateTemperatures() {
 	}
 }
 
+float PerlinNoise(float x, float y) {
+	float frequency = 0.3f;
+	return 0.5f * (sin(x * frequency) + cos(y * frequency)); // Simple noise function
+}
+
 void WildFireSimulation::InitializeWildFireFimulation()
 {
 	// Initialize the grid with default values.
@@ -98,7 +104,7 @@ void WildFireSimulation::InitializeWildFireFimulation()
 		for (int index_X = 0; index_X < GRID_SIZE_X; index_X++) {
 			// Set the ID to be a unique value for this specific grid cell.
 			grid[index_X][index_Y].gridCellID = (index_Y * GRID_SIZE_Y) + index_X;
-			grid[index_X][index_Y].CellHeight = 0.f;
+			grid[index_X][index_Y].CellHeight = PerlinNoise(index_X, index_Y) * 10.f;
 			grid[index_X][index_Y].CurrentState = EGridCellState::NOT_ON_FIRE;
 			grid[index_X][index_Y].Material = EGridCellMaterial::GRASS;
 			grid[index_X][index_Y].CellLocation.X = index_X;
@@ -143,7 +149,7 @@ void WildFireSimulation::WriteGridResultsToImage()
 			case EGridCellState::NOT_ON_FIRE:
 			{
 				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 0] = 0;    // Red channel
-				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 1] = 255;  // Green channel
+				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 1] = 255 * (0.8f + ThisGridCell.CellHeight / 50.f);  // Green channel
 				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 2] = 0;    // Blue channel
 			}
 			break;
