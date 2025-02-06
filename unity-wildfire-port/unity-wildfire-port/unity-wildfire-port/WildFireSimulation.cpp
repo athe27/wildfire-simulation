@@ -98,6 +98,7 @@ void WildFireSimulation::InitializeWildFireFimulation()
 		for (int index_X = 0; index_X < GRID_SIZE_X; index_X++) {
 			// Set the ID to be a unique value for this specific grid cell.
 			grid[index_X][index_Y].gridCellID = (index_Y * GRID_SIZE_Y) + index_X;
+			grid[index_X][index_Y].CellHeight = 0.f;
 			grid[index_X][index_Y].CurrentState = EGridCellState::NOT_ON_FIRE;
 			grid[index_X][index_Y].Material = EGridCellMaterial::GRASS;
 			grid[index_X][index_Y].CellLocation.X = index_X;
@@ -110,6 +111,8 @@ void WildFireSimulation::InitializeWildFireFimulation()
 
 	currentTickCounter = 0;
 	GenerateTemperatures();
+
+	InitializeWindOffsets();
 }
 
 std::string getCurrentTimestamp() {
@@ -209,7 +212,7 @@ void WildFireSimulation::UpdateWildFireSimulation(float dt)
 			{
 				// Check if this cell should catch fire based on neighbors
 				IntVector2D location = { index_X, index_Y };
-				bool neighborOnFire =
+				bool neighborOnFire = //FindOnFireNeighboringGridCells(location).size() > 0;
 					CheckWindNeighbors(location);
 
 				// If we have fire neighbors or random fire can start, check probability to catch fire

@@ -32,6 +32,7 @@ struct WildFireGridCell
 	int gridCellID;
 
 	IntVector2D CellLocation;
+	float CellHeight;
 
 	// Defines whether this grid cell is currently on fire or not.
 	EGridCellState CurrentState = EGridCellState::NOT_ON_FIRE;
