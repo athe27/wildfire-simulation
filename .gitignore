@@ -400,4 +400,4 @@ FodyWeavers.xsd
 *.sln.iml
 
 # Output Image Folder
-unity-wildfire-port/unity-wildfire-port/OutputImages/*
+unity-wildfire-port/unity-wildfire-port/unity-wildfire-port/OutputImages/*
