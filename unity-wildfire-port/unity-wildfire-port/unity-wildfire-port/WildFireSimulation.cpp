@@ -13,11 +13,42 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include "wildfireSimulation.h"
 
 const std::vector<std::string> WildFireSimulation::windDirections = {
 	"calm", "S", "N", "W", "E", "SW", "SE", "NW", "NE"
 };
+
+void WildFireSimulation::LoadHeightMapFromImage(const char* filename) {
+	int width, height, channels;
+	unsigned char* image_data = stbi_load(filename, &width, &height, &channels, STBI_grey);
+
+	if (!image_data) {
+		std::cerr << "Failed to load heightmap image: " << filename << std::endl;
+		return;
+	}
+
+	// Ensure the image dimensions match or can be scaled to our grid size
+	for (int y = 0; y < GRID_SIZE_Y; y++) {
+		for (int x = 0; x < GRID_SIZE_X; x++) {
+			// Calculate the corresponding pixel coordinates in the image
+			int img_x = (x * width) / GRID_SIZE_X;
+			int img_y = (y * height) / GRID_SIZE_Y;
+
+			// Get the pixel value (0-255) and normalize it to 0-1
+			float heightValue = image_data[img_y * width + img_x] / 255.0f;
+
+			// Set the cell height (assuming max height of 10.0f to match your existing scale)
+			grid[x][y].CellHeight = heightValue;
+		}
+	}
+
+	// Free the image data
+	stbi_image_free(image_data);
+}
 
 void WildFireSimulation::InitializeWindOffsets() {
 	// Initialize all wind direction offsets
@@ -99,12 +130,14 @@ float PerlinNoise(float x, float y) {
 
 void WildFireSimulation::InitializeWildFireFimulation()
 {
+	// load cell height map
+	LoadHeightMapFromImage("HeightMaps/HeightMap1.png");
+
 	// Initialize the grid with default values.
 	for (int index_Y = 0; index_Y < GRID_SIZE_Y; index_Y++) {
 		for (int index_X = 0; index_X < GRID_SIZE_X; index_X++) {
 			// Set the ID to be a unique value for this specific grid cell.
 			grid[index_X][index_Y].gridCellID = (index_Y * GRID_SIZE_Y) + index_X;
-			grid[index_X][index_Y].CellHeight = PerlinNoise(index_X, index_Y) * 10.f;
 			grid[index_X][index_Y].CurrentState = EGridCellState::NOT_ON_FIRE;
 			grid[index_X][index_Y].Material = EGridCellMaterial::GRASS;
 			grid[index_X][index_Y].CellLocation.X = index_X;
@@ -149,7 +182,7 @@ void WildFireSimulation::WriteGridResultsToImage()
 			case EGridCellState::NOT_ON_FIRE:
 			{
 				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 0] = 0;    // Red channel
-				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 1] = 255 * (0.8f + ThisGridCell.CellHeight / 50.f);  // Green channel
+				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 1] = 255 * ThisGridCell.CellHeight;  // Green channel
 				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 2] = 0;    // Blue channel
 			}
 			break;

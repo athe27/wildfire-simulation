@@ -85,6 +85,9 @@ private:
 	// Helper function for hourly temperature
 	void GenerateTemperatures();
 
+	// helper for height map
+	void LoadHeightMapFromImage(const char* filename);
+
 public:
 
 	void InitializeWildFireFimulation();
