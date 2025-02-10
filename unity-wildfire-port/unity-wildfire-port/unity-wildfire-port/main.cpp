@@ -16,6 +16,7 @@
 #include <iostream>
 
 #include "WildFireSimulation.h"
+#include "FireSimulation.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
@@ -29,6 +30,8 @@ const unsigned int SCR_HEIGHT = 600;
 const unsigned int WIDTH = 64;
 const unsigned int DEPTH = 64;
 const unsigned int HEIGHT = 128;
+
+static constexpr bool USE_CPU_IMPLEMENTATION = true;
 
 // timing 
 float deltaTime = 0.0f; // time between current frame and last frame
@@ -59,12 +62,9 @@ GLboolean generateMultipleTextures(GLsizei count, GLuint* textures,
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-		glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F,
-			width, height, depth,
-			0, GL_RGBA, GL_FLOAT, NULL);
+		glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, width, height, depth, 0, GL_RGBA, GL_FLOAT, NULL);
 
-		glBindImageTexture(i, textures[i], 0, GL_TRUE, 0,
-			GL_READ_WRITE, GL_RGBA32F);
+		glBindImageTexture(i, textures[i], 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA32F);
 	}
 
 	// Check for any errors during the process
@@ -190,7 +190,6 @@ int main(int argc, char* argv[])
 	// Create texture for opengl operation
 	// -----------------------------------
 	GLuint textures[3];
-
 	generateMultipleTextures(3, textures, WIDTH, HEIGHT, DEPTH);
 
 	const double fpsLimit = 1.0 / 60.0;
@@ -212,8 +211,10 @@ int main(int argc, char* argv[])
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 430");
 
-	WildFireSimulation* fireSimulation = new WildFireSimulation();
-	fireSimulation->InitializeWildFireFimulation();
+	WildFireSimulation* wildFireSimulation = new WildFireSimulation();
+	wildFireSimulation->InitializeWildFireFimulation();
+
+	FireSimulation* fireSimulation = new FireSimulation();
 
 	// This while loop repeats as fast as possible
 	while (!glfwWindowShouldClose(window))
@@ -240,8 +241,8 @@ int main(int argc, char* argv[])
 
 
 			if ((++numberOfUpdatesUntilNextGridImageWrite) >= UPDATES_BETWEEN_GRID_IMAGE_WRITES) {
-				fireSimulation->UpdateWildFireSimulation(1.f / 60.f);
-				fireSimulation->WriteGridResultsToImage();
+				wildFireSimulation->UpdateWildFireSimulation(1.f / 60.f);
+				wildFireSimulation->WriteGridResultsToImage();
 				numberOfUpdatesUntilNextGridImageWrite = 0;
 			}
 
@@ -269,34 +270,39 @@ int main(int argc, char* argv[])
 			ImGui::InputFloat("wind speed frequency", &m_windSpeedFrequency);
 			ImGui::End();
 
-			// draw your frame here
-			computeShader.use();
-			computeShader.setFloat("iTime", now);
-			// set configs
-			computeShader.setFloat("dt", dt);
-			computeShader.setInt("m_iterations", m_iterations);
-			computeShader.setFloat("m_vorticityStrength", m_vorticityStrength);
-			computeShader.setFloat("m_densityAmount", m_densityAmount);
-			computeShader.setFloat("m_densityDissipation", m_densityDissipation);
-			computeShader.setFloat("m_densityBuoyancy", m_densityBuoyancy);
-			computeShader.setFloat("m_densityWeight", m_densityWeight);
-			computeShader.setFloat("m_temperatureAmount", m_temperatureAmount);
-			computeShader.setFloat("m_temperatureDissipation", m_temperatureDissipation);
-			computeShader.setFloat("m_reactionAmount", m_reactionAmount);
-			computeShader.setFloat("m_reactionDecay", m_reactionDecay);
-			computeShader.setFloat("m_reactionExtinguishment", m_reactionExtinguishment);
-			computeShader.setFloat("m_velocityDissipation", m_velocityDissipation);
-			computeShader.setFloat("m_inputRadius", m_inputRadius);
-			computeShader.setFloat("m_ambientTemperature", m_ambientTemperature);
-			computeShader.setVec3("m_inputPos", glm::vec3(m_inputPos[0], m_inputPos[1], m_inputPos[2]));
-			computeShader.setBool("gustActive", mouseDown);
-			computeShader.setVec2("gustPosition", gustPosition);
-			computeShader.setFloat("gustStrength", m_inputPos[0]);
-			computeShader.setFloat("m_windNoiseFrequency", m_windNoiseFrequency);
-			computeShader.setFloat("m_windSpeedFrequency", m_windSpeedFrequency);
+			if (USE_CPU_IMPLEMENTATION) {
+				fireSimulation->RunFireSimulation(dt, textures);
+			} else {
+				// draw your frame here
+				computeShader.use();
+				computeShader.setFloat("iTime", now);
+				// set configs
+				computeShader.setFloat("dt", dt);
+				computeShader.setInt("m_iterations", m_iterations);
+				computeShader.setFloat("m_vorticityStrength", m_vorticityStrength);
+				computeShader.setFloat("m_densityAmount", m_densityAmount);
+				computeShader.setFloat("m_densityDissipation", m_densityDissipation);
+				computeShader.setFloat("m_densityBuoyancy", m_densityBuoyancy);
+				computeShader.setFloat("m_densityWeight", m_densityWeight);
+				computeShader.setFloat("m_temperatureAmount", m_temperatureAmount);
+				computeShader.setFloat("m_temperatureDissipation", m_temperatureDissipation);
+				computeShader.setFloat("m_reactionAmount", m_reactionAmount);
+				computeShader.setFloat("m_reactionDecay", m_reactionDecay);
+				computeShader.setFloat("m_reactionExtinguishment", m_reactionExtinguishment);
+				computeShader.setFloat("m_velocityDissipation", m_velocityDissipation);
+				computeShader.setFloat("m_inputRadius", m_inputRadius);
+				computeShader.setFloat("m_ambientTemperature", m_ambientTemperature);
+				computeShader.setVec3("m_inputPos", glm::vec3(m_inputPos[0], m_inputPos[1], m_inputPos[2]));
+				computeShader.setBool("gustActive", mouseDown);
+				computeShader.setVec2("gustPosition", gustPosition);
+				computeShader.setFloat("gustStrength", m_inputPos[0]);
+				computeShader.setFloat("m_windNoiseFrequency", m_windNoiseFrequency);
+				computeShader.setFloat("m_windSpeedFrequency", m_windSpeedFrequency);
 
+				glDispatchCompute(WIDTH, HEIGHT, DEPTH);
 
-			glDispatchCompute(WIDTH, HEIGHT, DEPTH);
+				
+			}
 
 			// make sure writing to image has finished before read
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -351,6 +357,9 @@ int main(int argc, char* argv[])
 	ImGui::DestroyContext();
 
 	glfwTerminate();
+
+	delete fireSimulation;
+	delete wildFireSimulation;
 
 	return EXIT_SUCCESS;
 }

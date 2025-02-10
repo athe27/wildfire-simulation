@@ -139,6 +139,7 @@
     <ClCompile Include="..\..\imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="..\..\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\..\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="FireSimulation.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="WildFireSimulation.cpp" />
@@ -149,6 +150,7 @@
     <None Include="screenQuad.vs" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="FireSimulation.h" />
     <ClInclude Include="WildFireSimulation.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -158,7 +158,7 @@ float SampleBilinear(bool otherData, vec3 voxelCoord, vec3 size, int index)
     int xp1 = int(min(size.x - 1, x + 1));
     int yp1 = int(min(size.y - 1, y + 1));
     int zp1 = int(min(size.z - 1, z + 1));
-
+    
     float x0, x1, x2, x3;
 
     if (otherData == true)
@@ -282,17 +282,6 @@ void ApplyWind(vec3 voxelCoord, inout vec4 velocityDensityData)
 {
     float D = velocityDensityData.w;
     vec3 V = velocityDensityData.xyz;
-
-    // Current work for wind gust at mouse input
-    if (gustActive)
-    {
-        //vec2 toGust = normalize(vec2(voxelCoord.x, voxelCoord.y) - gustPosition);
-        //float distance = length(vec2(voxelCoord.x, voxelCoord.y) - gustPosition);
-        //float influence = max(0.0, 1.0 - distance);
-        //vec2 gustForce = toGust * gustStrength * influence;
-        //V.z += gustForce.x;
-        //V.y = gustForce.y;
-    }
 
     vec2 noiseInput = (vec2(voxelCoord.x, voxelCoord.y) * m_windNoiseFrequency + iTime);
 
