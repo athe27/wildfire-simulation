@@ -17,7 +17,8 @@ enum class EGridCellMaterial
 {
 	GRASS,
 	WATER,
-	BEDROCK
+	BEDROCK,
+	TREE
 };
 
 struct IntVector2D
@@ -52,9 +53,18 @@ private:
 
 	static constexpr float FIRE_PROB = 0.01f;
 
-	static constexpr float FLAMMABLE_PROBABILITY_FOR_GRASS = 0.75f;
+	static constexpr float FLAMMABLE_PROBABILITY_FOR_GRASS = 0.f;
 	static constexpr float FLAMMABLE_PROBABILITY_FOR_WATER = 0.f;
 	static constexpr float FLAMMABLE_PROBABILITY_FOR_BEDROCK = 0.1f;
+	static constexpr float FLAMMABLE_PROBABILITY_FOR_TREE = 0.75f;
+
+	static constexpr float GRASS_REGROW_PROBABILITY = 0.1f;
+	static constexpr float TREE_REGROW_PROBABILITY = 0.2f;
+
+	static constexpr float BASE_BEDROCK_PROB = 0.02f;
+	static constexpr float BASE_WATER_PROB = 0.03f;
+	static constexpr float BEDROCK_CLUSTER_MULTIPLIER = 5.0f; // If neighbor has bedrock
+	static constexpr float WATER_CLUSTER_MULTIPLIER = 10.0f;  // If neighbor has water
 
 	static constexpr int MIN_GRID_INDEX_X = 0;
 	static constexpr int MAX_GRID_INDEX_X = GRID_SIZE_X - 1;
@@ -87,6 +97,9 @@ private:
 
 	// helper for height map
 	void LoadHeightMapFromImage(const char* filename);
+
+	// Helper for finding neighbors of bedrock and water
+	bool HasNeighborWithMaterial(int x, int y, EGridCellMaterial material);
 
 public:
 

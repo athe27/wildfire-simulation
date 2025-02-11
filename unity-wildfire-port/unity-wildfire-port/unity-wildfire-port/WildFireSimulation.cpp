@@ -139,7 +139,8 @@ void WildFireSimulation::InitializeWildFireFimulation()
 			// Set the ID to be a unique value for this specific grid cell.
 			grid[index_X][index_Y].gridCellID = (index_Y * GRID_SIZE_Y) + index_X;
 			grid[index_X][index_Y].CurrentState = EGridCellState::NOT_ON_FIRE;
-			grid[index_X][index_Y].Material = EGridCellMaterial::GRASS;
+			grid[index_X][index_Y].Material = (std::rand() % 2 == 0) ?
+				EGridCellMaterial::GRASS : EGridCellMaterial::TREE;
 			grid[index_X][index_Y].CellLocation.X = index_X;
 			grid[index_X][index_Y].CellLocation.Y = index_Y;
 		}
@@ -147,6 +148,31 @@ void WildFireSimulation::InitializeWildFireFimulation()
 
 	// Set the initial grid cell on fire.
 	// grid[GRID_SIZE_X / 2][GRID_SIZE_Y / 2].CurrentState = EGridCellState::ON_FIRE;
+
+	// Assign water and bedrock in clusters
+	for (int index_Y = 0; index_Y < GRID_SIZE_Y; index_Y++) {
+		for (int index_X = 0; index_X < GRID_SIZE_X; index_X++) {
+			float bedrockProb = BASE_BEDROCK_PROB;
+			float waterProb = BASE_WATER_PROB;
+
+			// Step 3: Check neighbors for clustering effect
+			if (HasNeighborWithMaterial(index_X, index_Y, EGridCellMaterial::BEDROCK)) {
+				bedrockProb *= BEDROCK_CLUSTER_MULTIPLIER;
+			}
+			if (HasNeighborWithMaterial(index_X, index_Y, EGridCellMaterial::WATER)) {
+				waterProb *= WATER_CLUSTER_MULTIPLIER;
+			}
+
+			// Random assignment based on probability
+			float randValue = static_cast<float>(rand()) / RAND_MAX;
+			if (randValue < bedrockProb) {
+				grid[index_X][index_Y].Material = EGridCellMaterial::BEDROCK;
+			}
+			else if (randValue < waterProb) {
+				grid[index_X][index_Y].Material = EGridCellMaterial::WATER;
+			}
+		}
+	}
 
 	currentTickCounter = 0;
 	GenerateTemperatures();
@@ -181,9 +207,36 @@ void WildFireSimulation::WriteGridResultsToImage()
 			switch (ThisGridCell.CurrentState) {
 			case EGridCellState::NOT_ON_FIRE:
 			{
-				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 0] = 0;    // Red channel
-				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 1] = 255 * ThisGridCell.CellHeight;  // Green channel
-				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 2] = 0;    // Blue channel
+				switch (ThisGridCell.Material) {
+				case EGridCellMaterial::GRASS: 
+				{
+					image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 0] = 0;    // Red channel
+					image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 1] = 255 * ThisGridCell.CellHeight;  // Green channel
+					image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 2] = 0;    // Blue channel
+				}
+				break;
+				case EGridCellMaterial::TREE: 
+				{
+					image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 0] = 0;    // Red channel
+					image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 1] = 150 * ThisGridCell.CellHeight;  // Green channel
+					image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 2] = 0;    // Blue channel
+				}
+				break;
+				case EGridCellMaterial::BEDROCK:
+				{
+					image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 0] = 100;    // Red channel
+					image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 1] = 100;  // Green channel
+					image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 2] = 100;    // Blue channel
+					}
+				break;
+				case EGridCellMaterial::WATER:
+				{
+					image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 0] = 135;    // Red channel
+					image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 1] = 206;  // Green channel
+					image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 2] = 250;    // Blue channel
+				}
+				break;
+				}
 			}
 			break;
 			case EGridCellState::ON_FIRE:
@@ -195,9 +248,9 @@ void WildFireSimulation::WriteGridResultsToImage()
 			break;
 			case EGridCellState::DESTROYED:
 			{
-				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 0] = 255;
-				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 1] = 255;
-				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 2] = 255;
+				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 0] = 0;
+				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 1] = 0;
+				image_data[(Index_Y * GRID_SIZE_X + Index_X) * 3 + 2] = 0;
 			}
 			break;
 			}
@@ -263,6 +316,9 @@ void WildFireSimulation::UpdateWildFireSimulation(float dt)
 					case EGridCellMaterial::GRASS:
 						flammableProb = FLAMMABLE_PROBABILITY_FOR_GRASS;
 						break;
+					case EGridCellMaterial::TREE:
+						flammableProb = FLAMMABLE_PROBABILITY_FOR_TREE;
+						break;
 					case EGridCellMaterial::WATER:
 						flammableProb = FLAMMABLE_PROBABILITY_FOR_WATER;
 						break;
@@ -280,6 +336,14 @@ void WildFireSimulation::UpdateWildFireSimulation(float dt)
 						newGrid[index_X][index_Y].CurrentState = EGridCellState::ON_FIRE;
 					}
 				}
+				// Possibility that a grass cell grows into a tree cell
+				else if (ThisGridCell.Material == EGridCellMaterial::GRASS) {
+					float regrowTreeProb = TREE_REGROW_PROBABILITY;
+					float newTreeProb = static_cast<float>(rand()) / RAND_MAX;
+					if (regrowTreeProb > newTreeProb) {
+						newGrid[index_X][index_Y].Material = EGridCellMaterial::TREE;
+					}
+				}
 			}
 			break;
 			case EGridCellState::ON_FIRE:
@@ -290,7 +354,13 @@ void WildFireSimulation::UpdateWildFireSimulation(float dt)
 			break;
 			case EGridCellState::DESTROYED:
 			{
-				// Do nothing
+				float regrowGrassProb = GRASS_REGROW_PROBABILITY;
+				// Generate random probability to see if destroyed cell can turn into grass
+				float newGrassProb = static_cast<float>(rand()) / RAND_MAX;
+				if (regrowGrassProb > newGrassProb) {
+					newGrid[index_X][index_Y].CurrentState = EGridCellState::NOT_ON_FIRE;
+					newGrid[index_X][index_Y].Material = EGridCellMaterial::GRASS;
+				}
 			}
 			break;
 			}
@@ -379,4 +449,24 @@ int WildFireSimulation::GetNumberOfCellsByState(EGridCellState StateToCheckBy)
 	}
 
 	return numberOfCellsWithState;
+}
+
+bool WildFireSimulation::HasNeighborWithMaterial(int x, int y, EGridCellMaterial material)
+{
+	// Directions: left, right, up, down
+	int dx[] = { -1, 1, 0, 0 };
+	int dy[] = { 0, 0, -1, 1 };
+
+	for (int i = 0; i < 4; i++) {
+		int nx = x + dx[i];
+		int ny = y + dy[i];
+
+		// Ensure within grid bounds
+		if (nx >= 0 && nx < GRID_SIZE_X && ny >= 0 && ny < GRID_SIZE_Y) {
+			if (grid[nx][ny].Material == material) {
+				return true;
+			}
+		}
+	}
+	return false;
 }
