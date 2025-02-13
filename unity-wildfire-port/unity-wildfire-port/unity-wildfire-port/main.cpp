@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -14,8 +16,15 @@
 #include <learnopengl/camera.h>
 
 #include <iostream>
+#include <iomanip>
 
-#include "WildFireSimulation.h"
+#include <vector>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
@@ -30,6 +39,10 @@ const unsigned int WIDTH = 64;
 const unsigned int DEPTH = 64;
 const unsigned int HEIGHT = 128;
 
+// wildfire grid size
+const unsigned int WILDFIRE_WIDTH = 64;
+const unsigned int WILDFIRE_HEIGHT = 64;
+
 // timing 
 float deltaTime = 0.0f; // time between current frame and last frame
 float lastFrame = 0.0f; // time of last frame
@@ -41,15 +54,130 @@ bool mouseDown = false;
 glm::vec2 mousePos = glm::vec2(0.0f, 0.0f);
 glm::vec2 gustPosition = glm::vec2(0.f, 0.f);
 
-GLboolean generateMultipleTextures(GLsizei count, GLuint* textures,
-	GLsizei width, GLsizei height, GLsizei depth) {
-	// Generate all textures at once
-	glGenTextures(count, textures);
+std::string getCurrentTimestamp() {
+	auto now = std::time(nullptr);
+	std::tm tm_struct;
+#ifdef _WIN32
+	localtime_s(&tm_struct, &now);  // Windows-specific
+#else
+	localtime_r(&now, &tm_struct);  // Linux/macOS
+#endif
+
+	std::ostringstream oss;
+	oss << std::put_time(&tm_struct, "%Y-%m-%d_%H-%M-%S");  // Format: YYYY-MM-DD_HH-MM-SS
+	return oss.str();
+}
+
+
+void saveTextureToImage(GLuint textureID, int width, int height, const std::string& filename) {
+	// Allocate memory for the texture data (RGBA format since we're using GL_RGBA32F)
+	std::vector<float> textureData(width * height * 4);
+
+	// Bind the texture and read its data
+	glBindTexture(GL_TEXTURE_2D, textureID);
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, textureData.data());
+
+	// Convert float data (0-1) to uint8 (0-255) for PNG output
+	std::vector<uint8_t> imageData(width * height * 3);  // RGB output
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			int texIndex = (y * width + x) * 4;  // RGBA input
+			int imgIndex = (y * width + x) * 3;  // RGB output
+
+			// Convert float (0-1) to uint8 (0-255) and clamp values
+			if (textureData[texIndex + 1] == 1.0f) {
+				// On Fire
+				imageData[imgIndex + 0] = 255;
+				imageData[imgIndex + 1] = 0;
+				imageData[imgIndex + 2] = 0;
+			}
+			else if (textureData[texIndex + 1] == 2.0f) {
+				// Destroyed
+				imageData[imgIndex + 0] = 0;
+				imageData[imgIndex + 1] = 0;
+				imageData[imgIndex + 2] = 0;
+			}
+			else if (textureData[texIndex] == 0.0f) {
+				// Grass
+				imageData[imgIndex + 0] = 0;
+				imageData[imgIndex + 1] = 255;
+				imageData[imgIndex + 2] = 0;
+			}
+			else if (textureData[texIndex] == 1.0f) {
+				// Water
+				imageData[imgIndex + 0] = 0;
+				imageData[imgIndex + 1] = 0;
+				imageData[imgIndex + 2] = 255;
+			}
+			else if (textureData[texIndex] == 2.0f) {
+				// Bedrock
+				imageData[imgIndex + 0] = 100;
+				imageData[imgIndex + 1] = 100;
+				imageData[imgIndex + 2] = 100;
+			}
+		}
+	}
+
+	// Save the image
+	if (stbi_write_png(filename.c_str(), width, height, 3, imageData.data(), width * 3)) {
+		std::cout << "Texture saved successfully to " << filename << std::endl;
+	}
+	else {
+		std::cerr << "Failed to save texture to " << filename << std::endl;
+	}
+}
+
+GLboolean generateMultipleTextures2D(GLsizei offset, GLsizei count, GLuint* textures,
+	GLsizei width, GLsizei height) {
+	// setup wildfire initial data
+	const size_t pixelCount = width * height;
+	float* data = new float[pixelCount * 4];
+	for (size_t i = 0; i < pixelCount; i++) {
+		data[i * 4 + 0] = 0.0f;  // Grass material
+		data[i * 4 + 1] = 0.0f;  // Not on fire
+		data[i * 4 + 2] = 0.0f;  // Height
+		data[i * 4 + 3] = 1.0f;  // unused for now
+	}
 
 	// Set up each texture
 	for (GLsizei i = 0; i < count; i++) {
-		glActiveTexture(GL_TEXTURE0 + i);
-		glBindTexture(GL_TEXTURE_3D, textures[i]);
+		GLsizei finalOffset = i + offset;
+
+		glActiveTexture(GL_TEXTURE0 + finalOffset);
+		glBindTexture(GL_TEXTURE_2D, textures[finalOffset]);
+
+		// Set common parameters
+		const GLint wrap = GL_CLAMP_TO_BORDER;
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+		// Set border to nonsense values
+		float borderColor[] = { -1.0f, -1.0f, 0.0f, 1.0f }; // RGBA values
+		glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F,
+			width, height,
+			0, GL_RGBA, GL_FLOAT, data);
+
+		glBindImageTexture(finalOffset, textures[finalOffset], 0, GL_TRUE, 0,
+			GL_READ_WRITE, GL_RGBA32F);
+	}
+
+	// Check for any errors during the process
+	GLenum err = glGetError();
+	return (err == GL_NO_ERROR);
+}
+
+GLboolean generateMultipleTextures3D(GLsizei offset, GLsizei count, GLuint* textures,
+	GLsizei width, GLsizei height, GLsizei depth) {
+	// Set up each texture
+	for (GLsizei i = 0; i < count; i++) {
+		GLsizei finalOffset = i + offset;
+
+		glActiveTexture(GL_TEXTURE0 + finalOffset);
+		glBindTexture(GL_TEXTURE_3D, textures[finalOffset]);
 
 		// Set common parameters
 		const GLint wrap = GL_CLAMP_TO_BORDER;
@@ -63,7 +191,7 @@ GLboolean generateMultipleTextures(GLsizei count, GLuint* textures,
 			width, height, depth,
 			0, GL_RGBA, GL_FLOAT, NULL);
 
-		glBindImageTexture(i, textures[i], 0, GL_TRUE, 0,
+		glBindImageTexture(finalOffset, textures[finalOffset], 0, GL_TRUE, 0,
 			GL_READ_WRITE, GL_RGBA32F);
 	}
 
@@ -134,11 +262,12 @@ int main(int argc, char* argv[])
 	// -------------------------
 	Shader screenQuad("screenQuad.vs", "screenQuad.fs");
 	ComputeShader computeShader("computeShader.cs");
+	ComputeShader wildfireCompute("wildfireCompute.cs");
 
 	screenQuad.use();
-	screenQuad.setInt("velocityDensityTexture", 0);
-	screenQuad.setInt("pressureTempPhiReactionTexture", 1);
-	screenQuad.setInt("curlObstaclesTexture", 2);
+	screenQuad.setInt("velocityDensityTexture", 1);
+	screenQuad.setInt("pressureTempPhiReactionTexture", 2);
+	screenQuad.setInt("curlObstaclesTexture", 3);
 	screenQuad.setVec3("m_size", glm::vec3(WIDTH, HEIGHT, DEPTH));
 	screenQuad.setBool("mouseDown", mouseDown);
 	screenQuad.setVec2("mousePos", mousePos);
@@ -189,9 +318,14 @@ int main(int argc, char* argv[])
 
 	// Create texture for opengl operation
 	// -----------------------------------
-	GLuint textures[3];
+	const GLsizei numTextures = 4;
+	GLuint textures[numTextures];
 
-	generateMultipleTextures(3, textures, WIDTH, HEIGHT, DEPTH);
+	// Generate all textures at once
+	glGenTextures(numTextures, textures);
+
+	generateMultipleTextures2D(0, 1, textures, WILDFIRE_WIDTH, WILDFIRE_HEIGHT);
+	generateMultipleTextures3D(1, 3, textures, WIDTH, HEIGHT, DEPTH);
 
 	const double fpsLimit = 1.0 / 60.0;
 	double lastUpdateTime = 0;  // number of seconds since the last loop
@@ -212,8 +346,8 @@ int main(int argc, char* argv[])
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 430");
 
-	WildFireSimulation* fireSimulation = new WildFireSimulation();
-	fireSimulation->InitializeWildFireFimulation();
+	//WildFireSimulation* fireSimulation = new WildFireSimulation();
+	//fireSimulation->InitializeWildFireFimulation();
 
 	// This while loop repeats as fast as possible
 	while (!glfwWindowShouldClose(window))
@@ -240,8 +374,18 @@ int main(int argc, char* argv[])
 
 
 			if ((++numberOfUpdatesUntilNextGridImageWrite) >= UPDATES_BETWEEN_GRID_IMAGE_WRITES) {
-				fireSimulation->UpdateWildFireSimulation(1.f / 60.f);
-				fireSimulation->WriteGridResultsToImage();
+				//fireSimulation->UpdateWildFireSimulation(1.f / 60.f);
+				//fireSimulation->WriteGridResultsToImage();
+				// wildfire compute
+				wildfireCompute.use();
+				wildfireCompute.setFloat("iTime", now);
+				glDispatchCompute(WILDFIRE_WIDTH, WILDFIRE_HEIGHT, 1);
+				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+				// save image
+				std::string filename = "OutputImages/" + getCurrentTimestamp() + ".png";
+				saveTextureToImage(textures[0], WILDFIRE_WIDTH, WILDFIRE_HEIGHT, filename);
+
 				numberOfUpdatesUntilNextGridImageWrite = 0;
 			}
 
@@ -343,7 +487,7 @@ int main(int argc, char* argv[])
 
 	// optional: de-allocate all resources once they've outlived their purpose:
 	// ------------------------------------------------------------------------
-	glDeleteTextures(2, textures);
+	glDeleteTextures(numTextures, textures);
 	glDeleteProgram(screenQuad.ID);
 	glDeleteProgram(computeShader.ID);
 	ImGui_ImplOpenGL3_Shutdown();
