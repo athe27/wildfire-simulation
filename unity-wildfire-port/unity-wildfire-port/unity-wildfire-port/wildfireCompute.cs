@@ -10,6 +10,7 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 #define MATERIAL_GRASS 0
 #define MATERIAL_WATER 1
 #define MATERIAL_BEDROCK 2
+#define MATERIAL_TREE 3
 
 // ----------------------------------------------------------------------------
 //
@@ -30,9 +31,13 @@ layout(rgba32f, binding = 0) uniform image2D materialStateHeightTexture;
 layout(location = 0) uniform float iTime;
 
 uniform float FIRE_PROB = 0.01f;
-uniform float FLAMMABLE_PROBABILITY_FOR_GRASS = 0.75f;
+uniform float FLAMMABLE_PROBABILITY_FOR_GRASS = 0.0f;
 uniform float FLAMMABLE_PROBABILITY_FOR_WATER = 0.0f;
 uniform float FLAMMABLE_PROBABILITY_FOR_BEDROCK = 0.1f;
+uniform float FLAMMABLE_PROBABILITY_FOR_TREE = 0.75f;
+
+uniform float GRASS_REGROW_PROBABILITY = 0.1f;
+uniform float TREE_REGROW_PROBABILITY = 0.2f;
 
 // ----------------------------------------------------------------------------
 //
@@ -57,6 +62,12 @@ vec4 GetCellData(vec2 coord)
 int GetMaterial(vec4 cellData)
 {
     return int(cellData.x);
+}
+
+// Set the material of a cell
+void SetMaterial(inout vec4 cellData, int material)
+{
+    cellData.x = float(material);
 }
 
 // Get state as an integer
@@ -86,6 +97,17 @@ void processCell(vec2 coord, inout vec4 cellData)
     // TODO: Replace with wind implementation and add temperature factors.
     if (cellState == STATE_NOT_ON_FIRE)
     {
+        if (cellMaterial == MATERIAL_GRASS)
+        {
+            float regrowTreeProb = TREE_REGROW_PROBABILITY;
+            float newTreeProb = random(coord + vec2(iTime * 4, iTime * 4));
+            if (regrowTreeProb > newTreeProb)
+            {
+                SetMaterial(cellData, MATERIAL_TREE);
+                return;
+            }
+        }
+
         bool neighborOnFire = false;
 
         for (int i = -1; i <= 1; i++)
@@ -124,8 +146,12 @@ void processCell(vec2 coord, inout vec4 cellData)
             {
                 flammableProb = FLAMMABLE_PROBABILITY_FOR_BEDROCK;
             }
+            else if (cellMaterial == MATERIAL_TREE)
+            {
+                flammableProb = FLAMMABLE_PROBABILITY_FOR_TREE;
+            }
 
-            float randomProb = random(coord + vec2(iTime * 2, iTime / 2));
+            float randomProb = random(coord + vec2(iTime * 2, iTime * 2));
             if (flammableProb > randomProb)
             {
                 SetState(cellData, STATE_ON_FIRE);
@@ -135,6 +161,16 @@ void processCell(vec2 coord, inout vec4 cellData)
     else if (cellState == STATE_ON_FIRE)
     {
         SetState(cellData, STATE_DESTROYED);
+    }
+    else if (cellState == STATE_DESTROYED)
+    {
+        float regrowGrassProb = GRASS_REGROW_PROBABILITY;
+        float newGrassProb = random(coord + vec2(iTime * 3, iTime * 3));
+        if (regrowGrassProb > newGrassProb)
+        {
+            SetState(cellData, STATE_NOT_ON_FIRE);
+            SetMaterial(cellData, MATERIAL_GRASS);
+        }
     }
     
 }

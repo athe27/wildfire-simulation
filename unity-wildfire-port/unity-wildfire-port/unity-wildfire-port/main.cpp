@@ -115,6 +115,12 @@ void saveTextureToImage(GLuint textureID, int width, int height, const std::stri
 				imageData[imgIndex + 1] = 100;
 				imageData[imgIndex + 2] = 100;
 			}
+			else if (textureData[texIndex] == 3.0f) {
+				// Tree
+				imageData[imgIndex + 0] = 0;
+				imageData[imgIndex + 1] = 200;
+				imageData[imgIndex + 2] = 0;
+			}
 		}
 	}
 
@@ -133,7 +139,7 @@ GLboolean generateMultipleTextures2D(GLsizei offset, GLsizei count, GLuint* text
 	const size_t pixelCount = width * height;
 	float* data = new float[pixelCount * 4];
 	for (size_t i = 0; i < pixelCount; i++) {
-		data[i * 4 + 0] = 0.0f;  // Grass material
+		data[i * 4 + 0] = std::rand() % 2 == 0 ? 0.0f : 3.0f;  // Grass or Tree material
 		data[i * 4 + 1] = 0.0f;  // Not on fire
 		data[i * 4 + 2] = 0.0f;  // Height
 		data[i * 4 + 3] = 1.0f;  // unused for now
