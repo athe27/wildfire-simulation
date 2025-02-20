@@ -232,8 +232,8 @@ GLboolean generateWildfireTexture(GLsizei offset, GLuint* textures,
 		const GLint wrap = GL_CLAMP_TO_BORDER;
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
 		// Set border to nonsense values
 		float borderColor[] = { -1.0f, -1.0f, 0.0f, 1.0f }; // RGBA values
@@ -349,17 +349,18 @@ int main(int argc, char* argv[])
 
 	// build and compile shaders
 	// -------------------------
-	Shader screenQuad("screenQuad.vs", "screenQuad.fs");
+	Shader screenQuad("screenQuad.vs", "wildfireSim.fs");
 	ComputeShader computeShader("computeShader.cs");
 	ComputeShader wildfireCompute("wildfireCompute.cs");
 
 	screenQuad.use();
-	screenQuad.setInt("velocityDensityTexture", 1);
-	screenQuad.setInt("pressureTempPhiReactionTexture", 2);
-	screenQuad.setInt("curlObstaclesTexture", 3);
+	screenQuad.setInt("landscapeTexture", 0);
+	/*screenQuad.setInt("velocityDensityTexture", 2);
+	screenQuad.setInt("pressureTempPhiReactionTexture", 3);
+	screenQuad.setInt("curlObstaclesTexture", 4);
 	screenQuad.setVec3("m_size", glm::vec3(WIDTH, HEIGHT, DEPTH));
 	screenQuad.setBool("mouseDown", mouseDown);
-	screenQuad.setVec2("mousePos", mousePos);
+	screenQuad.setVec2("mousePos", mousePos);*/
 
 	float dt = 0.1f;
 	int m_iterations = 10;
@@ -464,8 +465,8 @@ int main(int argc, char* argv[])
 
 			if ((++numberOfUpdatesUntilNextGridImageWrite) >= UPDATES_BETWEEN_GRID_IMAGE_WRITES) {
 				// save image
-				std::string filename = "OutputImages/" + getCurrentTimestamp() + ".png";
-				saveTextureToImage(textures[0], WILDFIRE_WIDTH, WILDFIRE_HEIGHT, filename);
+				//std::string filename = "OutputImages/" + getCurrentTimestamp() + ".png";
+				//saveTextureToImage(textures[0], WILDFIRE_WIDTH, WILDFIRE_HEIGHT, filename);
 
 				//fireSimulation->UpdateWildFireSimulation(1.f / 60.f);
 				//fireSimulation->WriteGridResultsToImage();
@@ -482,7 +483,7 @@ int main(int argc, char* argv[])
 					WILDFIRE_WIDTH, WILDFIRE_HEIGHT, 1);
 			}
 
-			ImGui_ImplOpenGL3_NewFrame();
+			/*ImGui_ImplOpenGL3_NewFrame();
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();
 			ImGui::Begin("Config");
@@ -504,39 +505,38 @@ int main(int argc, char* argv[])
 			ImGui::InputFloat3("input position", m_inputPos);
 			ImGui::InputFloat("wind noise frequency", &m_windNoiseFrequency);
 			ImGui::InputFloat("wind speed frequency", &m_windSpeedFrequency);
-			ImGui::End();
+			ImGui::End();*/
 
 			// draw your frame here
-			computeShader.use();
-			computeShader.setFloat("iTime", now);
-			// set configs
-			computeShader.setFloat("dt", dt);
-			computeShader.setInt("m_iterations", m_iterations);
-			computeShader.setFloat("m_vorticityStrength", m_vorticityStrength);
-			computeShader.setFloat("m_densityAmount", m_densityAmount);
-			computeShader.setFloat("m_densityDissipation", m_densityDissipation);
-			computeShader.setFloat("m_densityBuoyancy", m_densityBuoyancy);
-			computeShader.setFloat("m_densityWeight", m_densityWeight);
-			computeShader.setFloat("m_temperatureAmount", m_temperatureAmount);
-			computeShader.setFloat("m_temperatureDissipation", m_temperatureDissipation);
-			computeShader.setFloat("m_reactionAmount", m_reactionAmount);
-			computeShader.setFloat("m_reactionDecay", m_reactionDecay);
-			computeShader.setFloat("m_reactionExtinguishment", m_reactionExtinguishment);
-			computeShader.setFloat("m_velocityDissipation", m_velocityDissipation);
-			computeShader.setFloat("m_inputRadius", m_inputRadius);
-			computeShader.setFloat("m_ambientTemperature", m_ambientTemperature);
-			computeShader.setVec3("m_inputPos", glm::vec3(m_inputPos[0], m_inputPos[1], m_inputPos[2]));
-			computeShader.setBool("gustActive", mouseDown);
-			computeShader.setVec2("gustPosition", gustPosition);
-			computeShader.setFloat("gustStrength", m_inputPos[0]);
-			computeShader.setFloat("m_windNoiseFrequency", m_windNoiseFrequency);
-			computeShader.setFloat("m_windSpeedFrequency", m_windSpeedFrequency);
+			//computeShader.use();
+			//computeShader.setFloat("iTime", now);
+			//// set configs
+			//computeShader.setFloat("dt", dt);
+			//computeShader.setInt("m_iterations", m_iterations);
+			//computeShader.setFloat("m_vorticityStrength", m_vorticityStrength);
+			//computeShader.setFloat("m_densityAmount", m_densityAmount);
+			//computeShader.setFloat("m_densityDissipation", m_densityDissipation);
+			//computeShader.setFloat("m_densityBuoyancy", m_densityBuoyancy);
+			//computeShader.setFloat("m_densityWeight", m_densityWeight);
+			//computeShader.setFloat("m_temperatureAmount", m_temperatureAmount);
+			//computeShader.setFloat("m_temperatureDissipation", m_temperatureDissipation);
+			//computeShader.setFloat("m_reactionAmount", m_reactionAmount);
+			//computeShader.setFloat("m_reactionDecay", m_reactionDecay);
+			//computeShader.setFloat("m_reactionExtinguishment", m_reactionExtinguishment);
+			//computeShader.setFloat("m_velocityDissipation", m_velocityDissipation);
+			//computeShader.setFloat("m_inputRadius", m_inputRadius);
+			//computeShader.setFloat("m_ambientTemperature", m_ambientTemperature);
+			//computeShader.setVec3("m_inputPos", glm::vec3(m_inputPos[0], m_inputPos[1], m_inputPos[2]));
+			//computeShader.setBool("gustActive", mouseDown);
+			//computeShader.setVec2("gustPosition", gustPosition);
+			//computeShader.setFloat("gustStrength", m_inputPos[0]);
+			//computeShader.setFloat("m_windNoiseFrequency", m_windNoiseFrequency);
+			//computeShader.setFloat("m_windSpeedFrequency", m_windSpeedFrequency);
 
-
-			glDispatchCompute(WIDTH, HEIGHT, DEPTH);
+			//glDispatchCompute(WIDTH, HEIGHT, DEPTH);
 
 			// make sure writing to image has finished before read
-			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+			//glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 			// render image to quad
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -550,7 +550,7 @@ int main(int argc, char* argv[])
 			screenQuad.setVec3("iResolution", glm::vec3(width, height, width / (float)height));
 
 			// set mouse stuff
-			ImGui::Begin("Config");
+			/*ImGui::Begin("Config");
 			bool isConfigFocused = ImGui::IsWindowFocused() || ImGui::IsWindowHovered();
 			ImGui::End();
 			bool mouseDownReal = mouseDown && isConfigFocused == false;
@@ -561,12 +561,12 @@ int main(int argc, char* argv[])
 				mousePos.x = xpos;
 				mousePos.y = ypos;
 				screenQuad.setVec2("mousePos", mousePos);
-			}
+			}*/
 
 			renderQuad();
 
-			ImGui::Render();
-			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+			/*ImGui::Render();
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());*/
 
 			glfwSwapBuffers(window);
 

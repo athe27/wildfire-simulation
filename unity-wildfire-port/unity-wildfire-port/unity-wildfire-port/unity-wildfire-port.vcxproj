@@ -147,6 +147,7 @@
     <None Include="screenQuad.fs" />
     <None Include="screenQuad.vs" />
     <None Include="wildfireCompute.cs" />
+    <None Include="wildfireSim.fs" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
