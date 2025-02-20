@@ -8,9 +8,9 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 //
 // ----------------------------------------------------------------------------
 
-layout(rgba32f, binding = 1) uniform image3D velocityDensityTexture;
-layout(rgba32f, binding = 2) uniform image3D pressureTempPhiReactionTexture;
-layout(rgba32f, binding = 3) uniform image3D curlObstaclesTexture;
+layout(rgba32f, binding = 2) uniform image3D velocityDensityTexture;
+layout(rgba32f, binding = 3) uniform image3D pressureTempPhiReactionTexture;
+layout(rgba32f, binding = 4) uniform image3D curlObstaclesTexture;
 
 layout(location = 0) uniform float iTime;
 

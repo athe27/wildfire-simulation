@@ -26,7 +26,8 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 // Uniforms
 //
 // ----------------------------------------------------------------------------
-layout(rgba32f, binding = 0) uniform image2D materialStateHeightTexture;
+layout(rgba32f, binding = 0) uniform image2D materialStateHeightTexture_READ;
+layout(rgba32f, binding = 1) uniform image2D materialStateHeightTexture_WRITE;
 
 layout(location = 0) uniform float iTime;
 
@@ -46,16 +47,30 @@ uniform float TREE_REGROW_PROBABILITY = 0.2f;
 // ----------------------------------------------------------------------------
 
 // Pseudo-random number generator
-float random(vec2 st)
+vec3 hash33(vec3 p3)
 {
-    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+    p3 = fract(p3 * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yxz + 33.33);
+    return fract((p3.xxy + p3.yxx) * p3.zyx);
+}
+
+float random(vec2 coord)
+{
+    // Create a 3D vector from our inputs
+    vec3 p = vec3(coord.x, coord.y, iTime);
+
+    // Add some large prime numbers to avoid patterns
+    p *= vec3(61.0, 157.0, 367.0);
+
+    // Use the first component of our hash
+    return hash33(p).x;
 }
 
 // Get cell data from texture
 vec4 GetCellData(vec2 coord)
 {
     ivec2 icoord = ivec2(coord);
-    return imageLoad(materialStateHeightTexture, icoord);
+    return imageLoad(materialStateHeightTexture_READ, icoord);
 }
 
 // Get material type as an integer
@@ -100,7 +115,7 @@ void processCell(vec2 coord, inout vec4 cellData)
         if (cellMaterial == MATERIAL_GRASS)
         {
             float regrowTreeProb = TREE_REGROW_PROBABILITY;
-            float newTreeProb = random(coord + vec2(iTime * 4, iTime * 4));
+            float newTreeProb = random(coord);
             if (regrowTreeProb > newTreeProb)
             {
                 SetMaterial(cellData, MATERIAL_TREE);
@@ -129,7 +144,7 @@ void processCell(vec2 coord, inout vec4 cellData)
             }
         }
 
-        float fireCatchProb = random(coord + vec2(iTime, iTime));
+        float fireCatchProb = random(coord);
 
         if (neighborOnFire || FIRE_PROB > fireCatchProb)
         {
@@ -151,7 +166,7 @@ void processCell(vec2 coord, inout vec4 cellData)
                 flammableProb = FLAMMABLE_PROBABILITY_FOR_TREE;
             }
 
-            float randomProb = random(coord + vec2(iTime * 2, iTime * 2));
+            float randomProb = random(coord);
             if (flammableProb > randomProb)
             {
                 SetState(cellData, STATE_ON_FIRE);
@@ -165,7 +180,7 @@ void processCell(vec2 coord, inout vec4 cellData)
     else if (cellState == STATE_DESTROYED)
     {
         float regrowGrassProb = GRASS_REGROW_PROBABILITY;
-        float newGrassProb = random(coord + vec2(iTime * 3, iTime * 3));
+        float newGrassProb = random(coord);
         if (regrowGrassProb > newGrassProb)
         {
             SetState(cellData, STATE_NOT_ON_FIRE);
@@ -185,5 +200,5 @@ void main()
 
     processCell(coord, cellData);
 
-    imageStore(materialStateHeightTexture, voxelCoord.xy, cellData);
+    imageStore(materialStateHeightTexture_WRITE, voxelCoord.xy, cellData);
 }

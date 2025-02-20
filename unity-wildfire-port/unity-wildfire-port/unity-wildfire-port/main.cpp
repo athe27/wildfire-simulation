@@ -95,6 +95,7 @@ void saveTextureToImage(GLuint textureID, int width, int height, const std::stri
 			int texIndex = (y * width + x) * 4;  // RGBA input
 			int imgIndex = (y * width + x) * 3;  // RGB output
 
+			int heightValue = textureData[texIndex + 2] * 255;
 			// Convert float (0-1) to uint8 (0-255) and clamp values
 			if (textureData[texIndex + 1] == 1.0f) {
 				// On Fire
@@ -110,9 +111,9 @@ void saveTextureToImage(GLuint textureID, int width, int height, const std::stri
 			}
 			else if (textureData[texIndex] == 0.0f) {
 				// Grass
-				imageData[imgIndex + 0] = 121;
-				imageData[imgIndex + 1] = 150;
-				imageData[imgIndex + 2] = 114;
+				imageData[imgIndex + 0] = std::min(255, 121 + heightValue);
+				imageData[imgIndex + 1] = std::min(255, 150 + heightValue);
+				imageData[imgIndex + 2] = std::min(255, 114 + heightValue);
 			}
 			else if (textureData[texIndex] == 1.0f) {
 				// Water
@@ -122,9 +123,9 @@ void saveTextureToImage(GLuint textureID, int width, int height, const std::stri
 			}
 			else if (textureData[texIndex] == 2.0f) {
 				// Bedrock
-				imageData[imgIndex + 0] = 207;
-				imageData[imgIndex + 1] = 198;
-				imageData[imgIndex + 2] = 180;
+				imageData[imgIndex + 0] = std::min(255, 207 + heightValue);
+				imageData[imgIndex + 1] = std::min(255, 198 + heightValue);
+				imageData[imgIndex + 2] = std::min(255, 180 + heightValue);
 			}
 			else if (textureData[texIndex] == 3.0f) {
 				// Tree
@@ -146,16 +147,44 @@ void saveTextureToImage(GLuint textureID, int width, int height, const std::stri
 
 GLboolean generateWildfireTexture(GLsizei offset, GLuint* textures,
 	GLsizei width, GLsizei height) {
+	const char* heightmap_file_name = "HeightMaps/GreatLakeHeightmap.png";
 	const char* landscape_file_name = "Landscapes/forested_landscape.png";
 
 	// setup wildfire initial data
 	const size_t pixelCount = width * height;
 	float* data = new float[pixelCount * 4];
 
-	int img_width, img_height, channels;
-	unsigned char* image_data = stbi_load(landscape_file_name, &img_width, &img_height, &channels, STBI_rgb);
+	// heightmap image
+	int heightmap_img_width, heightmap_img_height, heightmap_channels;
+	unsigned char* heightmap_image_data = stbi_load(heightmap_file_name, &heightmap_img_width, &heightmap_img_height, &heightmap_channels, STBI_grey);
 
-	if (!image_data) {
+	if (!heightmap_image_data) {
+		std::cerr << "Failed to load heightmap image: " << heightmap_file_name << std::endl;
+		return false;
+	}
+
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			// Calculate the corresponding pixel coordinates in the image
+			int img_x = (x * heightmap_img_width) / width;
+			int img_y = (y * heightmap_img_height) / height;
+
+			int index = (img_y * heightmap_img_width + img_x) * heightmap_channels;
+			float heightValue = heightmap_image_data[img_y * width + img_x] / 255.0f;
+
+			int data_index = (y * width + x) * 4;
+
+			data[data_index + 2] = heightValue;
+		}
+	}
+
+	stbi_image_free(heightmap_image_data);
+
+	// landscape image
+	int landscape_img_width, landscape_img_height, landscape_channels;
+	unsigned char* landscape_image_data = stbi_load(landscape_file_name, &landscape_img_width, &landscape_img_height, &landscape_channels, STBI_rgb);
+
+	if (!landscape_image_data) {
 		std::cerr << "Failed to load landscape image: " << landscape_file_name << std::endl;
 		return false;
 	}
@@ -164,14 +193,14 @@ GLboolean generateWildfireTexture(GLsizei offset, GLuint* textures,
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			// Calculate the corresponding pixel coordinates in the image
-			int img_x = (x * img_width) / width;
-			int img_y = (y * img_height) / height;
+			int img_x = (x * landscape_img_width) / width;
+			int img_y = (y * landscape_img_height) / height;
 
-			int index = (img_y * img_width + img_x) * channels;
+			int index = (img_y * landscape_img_width + img_x) * landscape_channels;
 
-			int r = (int)image_data[index];     // Red channel
-			int g = (int)image_data[index + 1]; // Green channel
-			int b = (int)image_data[index + 2]; // Blue channel
+			int r = (int)landscape_image_data[index];     // Red channel
+			int g = (int)landscape_image_data[index + 1]; // Green channel
+			int b = (int)landscape_image_data[index + 2]; // Blue channel
 
 			int data_index = (y * width + x) * 4;
 			if (r == 181 && g == 219 && b == 235) {
@@ -191,28 +220,39 @@ GLboolean generateWildfireTexture(GLsizei offset, GLuint* textures,
 		}
 	}
 
-	stbi_image_free(image_data);
+	stbi_image_free(landscape_image_data);
 
-	glActiveTexture(GL_TEXTURE0 + offset);
-	glBindTexture(GL_TEXTURE_2D, textures[offset]);
+	for (GLsizei i = 0; i < 2; i++) {
+		GLsizei finalOffset = offset + i;
 
-	// Set common parameters
-	const GLint wrap = GL_CLAMP_TO_BORDER;
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glActiveTexture(GL_TEXTURE0 + finalOffset);
+		glBindTexture(GL_TEXTURE_2D, textures[finalOffset]);
 
-	// Set border to nonsense values
-	float borderColor[] = { -1.0f, -1.0f, 0.0f, 1.0f }; // RGBA values
-	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+		// Set common parameters
+		const GLint wrap = GL_CLAMP_TO_BORDER;
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F,
-		width, height,
-		0, GL_RGBA, GL_FLOAT, data);
+		// Set border to nonsense values
+		float borderColor[] = { -1.0f, -1.0f, 0.0f, 1.0f }; // RGBA values
+		glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 
-	glBindImageTexture(offset, textures[offset], 0, GL_TRUE, 0,
-		GL_READ_WRITE, GL_RGBA32F);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F,
+			width, height,
+			0, GL_RGBA, GL_FLOAT, data);
+
+		if (i == 0) {
+			glBindImageTexture(finalOffset, textures[finalOffset], 0, GL_FALSE, 0,
+				GL_READ_ONLY, GL_RGBA32F);
+		}
+		else {
+			glBindImageTexture(finalOffset, textures[finalOffset], 0, GL_FALSE, 0,
+				GL_WRITE_ONLY, GL_RGBA32F);
+		}
+		
+	}
 
 	// Check for any errors during the process
 	GLenum err = glGetError();
@@ -374,7 +414,7 @@ int main(int argc, char* argv[])
 	glGenTextures(numTextures, textures);
 
 	generateWildfireTexture(0, textures, WILDFIRE_WIDTH, WILDFIRE_HEIGHT);
-	generateMultipleTextures3D(1, 3, textures, WIDTH, HEIGHT, DEPTH);
+	generateMultipleTextures3D(2, 3, textures, WIDTH, HEIGHT, DEPTH);
 
 	const double fpsLimit = 1.0 / 60.0;
 	double lastUpdateTime = 0;  // number of seconds since the last loop
@@ -436,6 +476,10 @@ int main(int argc, char* argv[])
 				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 				numberOfUpdatesUntilNextGridImageWrite = 0;
+
+				glCopyImageSubData(textures[1], GL_TEXTURE_2D, 0, 0, 0, 0,
+					textures[0], GL_TEXTURE_2D, 0, 0, 0, 0,
+					WILDFIRE_WIDTH, WILDFIRE_HEIGHT, 1);
 			}
 
 			ImGui_ImplOpenGL3_NewFrame();
