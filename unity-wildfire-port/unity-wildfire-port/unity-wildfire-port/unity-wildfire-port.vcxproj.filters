@@ -54,5 +54,7 @@
       <Filter>Source Files</Filter>
     </None>
     <None Include="wildfireCompute.cs" />
+    <None Include="heightmapReader.vs" />
+    <None Include="heightmapReader.fs" />
   </ItemGroup>
 </Project>

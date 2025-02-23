@@ -1,654 +1,298 @@
-#define _CRT_SECURE_NO_WARNINGS
-
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
-
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#include <learnopengl/shader_m.h>
-#include <learnopengl/shader_c.h>
-#include <learnopengl/camera.h>
-
-#include <iostream>
-#include <iomanip>
-
-#include <vector>
-
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-// wildfire macros
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
-#define MATERIAL_GRASS 0.0f
-#define MATERIAL_WATER 1.0f
-#define MATERIAL_BEDROCK 2.0f
-#define MATERIAL_TREE 3.0f
+#include <learnopengl/shader_m.h>
+#include <learnopengl/camera.h>
 
-#define STATE_NOT_ON_FIRE 0.0f
-#define STATE_ON_FIRE 1.0f
-#define STATE_DESTROYED 2.0f
+#include <iostream>
+#include <vector>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
-void renderQuad();
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int modifiers);
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void processInput(GLFWwindow* window);
 
-// settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+// Initial Settings
+const unsigned int SCR_WIDTH = 1280;
+const unsigned int SCR_HEIGHT = 720;
+int useWireframe = 0;
+int displayGrayscale = 0;
 
-// texture size
-const unsigned int WIDTH = 64;
-const unsigned int DEPTH = 64;
-const unsigned int HEIGHT = 128;
+glm::vec3 startingCameraPosition = glm::vec3(67.0f, 627.5f, 169.9f);
+glm::vec3 cameraUpVector = glm::vec3(0.0f, 1.f, 0.f);
+const float STARTING_CAMERA_YAW = -128.1f;
+const float STARTING_CAMERA_PITCH = -42.4f;
 
-// wildfire grid size
-const unsigned int WILDFIRE_WIDTH = 2048;
-const unsigned int WILDFIRE_HEIGHT = 2048;
+// camera - give pretty starting point
+Camera camera(startingCameraPosition, cameraUpVector, STARTING_CAMERA_YAW, STARTING_CAMERA_PITCH);
 
-// timing 
-float deltaTime = 0.0f; // time between current frame and last frame
-float lastFrame = 0.0f; // time of last frame
+float lastX = SCR_WIDTH / 2.0f;
+float lastY = SCR_HEIGHT / 2.0f;
+bool firstMouse = true;
 
-int numberOfUpdatesUntilNextGridImageWrite = 0;
-const unsigned int UPDATES_BETWEEN_GRID_IMAGE_WRITES = 30;
+// timing
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
 
-bool mouseDown = false;
-glm::vec2 mousePos = glm::vec2(0.0f, 0.0f);
-glm::vec2 gustPosition = glm::vec2(0.f, 0.f);
-
-std::string getCurrentTimestamp() {
-	auto now = std::time(nullptr);
-	std::tm tm_struct;
-#ifdef _WIN32
-	localtime_s(&tm_struct, &now);  // Windows-specific
-#else
-	localtime_r(&now, &tm_struct);  // Linux/macOS
-#endif
-
-	std::ostringstream oss;
-	oss << std::put_time(&tm_struct, "%Y-%m-%d_%H-%M-%S");  // Format: YYYY-MM-DD_HH-MM-SS
-	return oss.str();
-}
-
-
-void saveTextureToImage(GLuint textureID, int width, int height, const std::string& filename) {
-	// Allocate memory for the texture data (RGBA format since we're using GL_RGBA32F)
-	std::vector<float> textureData(width * height * 4);
-
-	// Bind the texture and read its data
-	glBindTexture(GL_TEXTURE_2D, textureID);
-	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, textureData.data());
-
-	// Convert float data (0-1) to uint8 (0-255) for PNG output
-	std::vector<uint8_t> imageData(width * height * 3);  // RGB output
-	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < width; x++) {
-			int texIndex = (y * width + x) * 4;  // RGBA input
-			int imgIndex = (y * width + x) * 3;  // RGB output
-
-			int heightValue = textureData[texIndex + 2] * 255;
-			// Convert float (0-1) to uint8 (0-255) and clamp values
-			if (textureData[texIndex + 1] == 1.0f) {
-				// On Fire
-				imageData[imgIndex + 0] = 255;
-				imageData[imgIndex + 1] = 119;
-				imageData[imgIndex + 2] = 0;
-			}
-			else if (textureData[texIndex + 1] == 2.0f) {
-				// Destroyed
-				imageData[imgIndex + 0] = 0;
-				imageData[imgIndex + 1] = 0;
-				imageData[imgIndex + 2] = 0;
-			}
-			else if (textureData[texIndex] == 0.0f) {
-				// Grass
-				imageData[imgIndex + 0] = std::min(255, 121 + heightValue);
-				imageData[imgIndex + 1] = std::min(255, 150 + heightValue);
-				imageData[imgIndex + 2] = std::min(255, 114 + heightValue);
-			}
-			else if (textureData[texIndex] == 1.0f) {
-				// Water
-				imageData[imgIndex + 0] = 181;
-				imageData[imgIndex + 1] = 219;
-				imageData[imgIndex + 2] = 235;
-			}
-			else if (textureData[texIndex] == 2.0f) {
-				// Bedrock
-				imageData[imgIndex + 0] = std::min(255, 207 + heightValue);
-				imageData[imgIndex + 1] = std::min(255, 198 + heightValue);
-				imageData[imgIndex + 2] = std::min(255, 180 + heightValue);
-			}
-			else if (textureData[texIndex] == 3.0f) {
-				// Tree
-				imageData[imgIndex + 0] = 34;
-				imageData[imgIndex + 1] = 87;
-				imageData[imgIndex + 2] = 22;
-			}
-		}
-	}
-
-	// Save the image
-	if (stbi_write_png(filename.c_str(), width, height, 3, imageData.data(), width * 3)) {
-		std::cout << "Texture saved successfully to " << filename << std::endl;
-	}
-	else {
-		std::cerr << "Failed to save texture to " << filename << std::endl;
-	}
-}
-
-GLboolean generateWildfireTexture(GLsizei offset, GLuint* textures,
-	GLsizei width, GLsizei height) {
-	const char* heightmap_file_name = "HeightMaps/GreatLakeHeightmap.png";
-	const char* landscape_file_name = "Landscapes/forested_landscape.png";
-
-	// setup wildfire initial data
-	const size_t pixelCount = width * height;
-	float* data = new float[pixelCount * 4];
-
-	// heightmap image
-	int heightmap_img_width, heightmap_img_height, heightmap_channels;
-	unsigned char* heightmap_image_data = stbi_load(heightmap_file_name, &heightmap_img_width, &heightmap_img_height, &heightmap_channels, STBI_grey);
-
-	if (!heightmap_image_data) {
-		std::cerr << "Failed to load heightmap image: " << heightmap_file_name << std::endl;
-		return false;
-	}
-
-	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < width; x++) {
-			// Calculate the corresponding pixel coordinates in the image
-			int img_x = (x * heightmap_img_width) / width;
-			int img_y = (y * heightmap_img_height) / height;
-
-			int index = (img_y * heightmap_img_width + img_x) * heightmap_channels;
-			float heightValue = heightmap_image_data[img_y * width + img_x] / 255.0f;
-
-			int data_index = (y * width + x) * 4;
-
-			data[data_index + 2] = heightValue;
-		}
-	}
-
-	stbi_image_free(heightmap_image_data);
-
-	// landscape image
-	int landscape_img_width, landscape_img_height, landscape_channels;
-	unsigned char* landscape_image_data = stbi_load(landscape_file_name, &landscape_img_width, &landscape_img_height, &landscape_channels, STBI_rgb);
-
-	if (!landscape_image_data) {
-		std::cerr << "Failed to load landscape image: " << landscape_file_name << std::endl;
-		return false;
-	}
-
-
-	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < width; x++) {
-			// Calculate the corresponding pixel coordinates in the image
-			int img_x = (x * landscape_img_width) / width;
-			int img_y = (y * landscape_img_height) / height;
-
-			int index = (img_y * landscape_img_width + img_x) * landscape_channels;
-
-			int r = (int)landscape_image_data[index];     // Red channel
-			int g = (int)landscape_image_data[index + 1]; // Green channel
-			int b = (int)landscape_image_data[index + 2]; // Blue channel
-
-			int data_index = (y * width + x) * 4;
-			if (r == 181 && g == 219 && b == 235) {
-				data[data_index + 0] = MATERIAL_WATER;
-			}
-			else if (r == 207 && g == 198 && b == 180) {
-				data[data_index + 0] = MATERIAL_BEDROCK;
-			}
-			else if (r == 121 && g == 150 && b == 114) {
-				data[data_index + 0] = MATERIAL_GRASS;
-			}
-			else if (r == 34 && g == 87 && b == 22) {
-				data[data_index + 0] = MATERIAL_TREE;
-			}
-
-			data[data_index + 1] = STATE_NOT_ON_FIRE;
-		}
-	}
-
-	stbi_image_free(landscape_image_data);
-
-	for (GLsizei i = 0; i < 2; i++) {
-		GLsizei finalOffset = offset + i;
-
-		glActiveTexture(GL_TEXTURE0 + finalOffset);
-		glBindTexture(GL_TEXTURE_2D, textures[finalOffset]);
-
-		// Set common parameters
-		const GLint wrap = GL_CLAMP_TO_BORDER;
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-		// Set border to nonsense values
-		float borderColor[] = { -1.0f, -1.0f, 0.0f, 1.0f }; // RGBA values
-		glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F,
-			width, height,
-			0, GL_RGBA, GL_FLOAT, data);
-
-		if (i == 0) {
-			glBindImageTexture(finalOffset, textures[finalOffset], 0, GL_FALSE, 0,
-				GL_READ_ONLY, GL_RGBA32F);
-		}
-		else {
-			glBindImageTexture(finalOffset, textures[finalOffset], 0, GL_FALSE, 0,
-				GL_WRITE_ONLY, GL_RGBA32F);
-		}
-		
-	}
-
-	// Check for any errors during the process
-	GLenum err = glGetError();
-	return (err == GL_NO_ERROR);
-}
-
-GLboolean generateMultipleTextures3D(GLsizei offset, GLsizei count, GLuint* textures,
-	GLsizei width, GLsizei height, GLsizei depth) {
-	// Set up each texture
-	for (GLsizei i = 0; i < count; i++) {
-		GLsizei finalOffset = i + offset;
-
-		glActiveTexture(GL_TEXTURE0 + finalOffset);
-		glBindTexture(GL_TEXTURE_3D, textures[finalOffset]);
-
-		// Set common parameters
-		const GLint wrap = GL_CLAMP_TO_BORDER;
-		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, wrap);
-		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, wrap);
-		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, wrap);
-		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-		glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F,
-			width, height, depth,
-			0, GL_RGBA, GL_FLOAT, NULL);
-
-		glBindImageTexture(finalOffset, textures[finalOffset], 0, GL_TRUE, 0,
-			GL_READ_WRITE, GL_RGBA32F);
-	}
-
-	// Check for any errors during the process
-	GLenum err = glGetError();
-	return (err == GL_NO_ERROR);
-}
-
-int main(int argc, char* argv[])
+int main()
 {
-	// glfw: initialize and configure
-	// ------------------------------
-	glfwInit();
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    // glfw: initialize and configure
+    // ------------------------------
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 #ifdef __APPLE__
-	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-	// glfw window creation
-	// --------------------
-	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
-	if (window == NULL)
-	{
-		std::cout << "Failed to create GLFW window" << std::endl;
-		glfwTerminate();
-		return -1;
-	}
-	glfwMakeContextCurrent(window);
-	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-	glfwSetMouseButtonCallback(window, mouse_button_callback);
-	glfwSwapInterval(0);
+    // glfw window creation
+    // --------------------
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL: Terrain CPU", NULL, NULL);
+    if (window == NULL)
+    {
+        std::cout << "Failed to create GLFW window" << std::endl;
+        glfwTerminate();
+        return -1;
+    }
+    glfwMakeContextCurrent(window);
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetKeyCallback(window, key_callback);
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetScrollCallback(window, scroll_callback);
 
-	// glad: load all OpenGL function pointers
-	// ---------------------------------------
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-	{
-		std::cout << "Failed to initialize GLAD" << std::endl;
-		return -1;
-	}
+    // tell GLFW to capture our mouse
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-	// query limitations
-	// -----------------
-	int max_compute_work_group_count[3];
-	int max_compute_work_group_size[3];
-	int max_compute_work_group_invocations;
+    // glad: load all OpenGL function pointers
+    // ---------------------------------------
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        return -1;
+    }
 
-	for (int idx = 0; idx < 3; idx++) {
-		glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, idx, &max_compute_work_group_count[idx]);
-		glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, idx, &max_compute_work_group_size[idx]);
-	}
-	glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &max_compute_work_group_invocations);
+    // configure global opengl state
+    // -----------------------------
+    glEnable(GL_DEPTH_TEST);
 
-	std::cout << "OpenGL Limitations: " << std::endl;
-	std::cout << "maximum number of work groups in X dimension " << max_compute_work_group_count[0] << std::endl;
-	std::cout << "maximum number of work groups in Y dimension " << max_compute_work_group_count[1] << std::endl;
-	std::cout << "maximum number of work groups in Z dimension " << max_compute_work_group_count[2] << std::endl;
+    // build and compile our shader program
+    // ------------------------------------
+    Shader heightMapShader("heightmapReader.vs", "heightmapReader.fs");
 
-	std::cout << "maximum size of a work group in X dimension " << max_compute_work_group_size[0] << std::endl;
-	std::cout << "maximum size of a work group in Y dimension " << max_compute_work_group_size[1] << std::endl;
-	std::cout << "maximum size of a work group in Z dimension " << max_compute_work_group_size[2] << std::endl;
+    // Load the heightmap from the set image.
+    // -------------------------
+    stbi_set_flip_vertically_on_load(true);
+    int imageWidth, imageHeight, nrChannels;
+    unsigned char* heightmapData = stbi_load("HeightMaps/GreatLakeHeightmap.png", &imageWidth, &imageHeight, &nrChannels, 0);
+    if (heightmapData)
+    {
+        std::cout << "Loaded heightmap of size " << imageHeight << " x " << imageWidth << std::endl;
+    }
+    else
+    {
+        std::cout << "Failed to load texture" << std::endl;
+    }
 
-	std::cout << "Number of invocations in a single local work group that may be dispatched to a compute shader " << max_compute_work_group_invocations << std::endl;
+    // set up vertex data (and buffer(s)) and configure vertex attributes
+    // ------------------------------------------------------------------
+    std::vector<float> vertices;
+    //float yScale = 64.0f / 256.0f, yShift = 16.0f;
+    float yScale = 1024.f / 256.0f, yShift = 8.f;
+    int rez = 1;
+    unsigned bytePerPixel = nrChannels;
+    for (int i = 0; i < imageHeight; i++)
+    {
+        for (int j = 0; j < imageWidth; j++)
+        {
+            unsigned char* pixelOffset = heightmapData + (j + imageWidth * i) * bytePerPixel;
+            unsigned char y = pixelOffset[0];
 
-	// build and compile shaders
-	// -------------------------
-	Shader screenQuad("screenQuad.vs", "screenQuad.fs");
-	ComputeShader computeShader("computeShader.cs");
-	ComputeShader wildfireCompute("wildfireCompute.cs");
+            // vertex
+            vertices.push_back(-imageHeight / 2.0f + imageHeight * i / (float)imageHeight);   // vx
+            vertices.push_back((int)y * yScale - yShift);   // vy
+            vertices.push_back(-imageWidth / 2.0f + imageWidth * j / (float)imageWidth);   // vz
+        }
+    }
+    std::cout << "Loaded " << vertices.size() / 3 << " vertices" << std::endl;
+    stbi_image_free(heightmapData);
 
-	screenQuad.use();
-	screenQuad.setInt("velocityDensityTexture", 1);
-	screenQuad.setInt("pressureTempPhiReactionTexture", 2);
-	screenQuad.setInt("curlObstaclesTexture", 3);
-	screenQuad.setVec3("m_size", glm::vec3(WIDTH, HEIGHT, DEPTH));
-	screenQuad.setBool("mouseDown", mouseDown);
-	screenQuad.setVec2("mousePos", mousePos);
+    std::vector<unsigned> indices;
+    for (unsigned i = 0; i < imageHeight - 1; i += rez)
+    {
+        for (unsigned j = 0; j < imageWidth; j += rez)
+        {
+            for (unsigned k = 0; k < 2; k++)
+            {
+                indices.push_back(j + imageWidth * (i + k * rez));
+            }
+        }
+    }
+    std::cout << "Loaded " << indices.size() << " indices" << std::endl;
 
-	float dt = 0.1f;
-	int m_iterations = 10;
-	float m_vorticityStrength = 5.0f;
-	float m_densityAmount = 1.0f;
-	float m_densityDissipation = 0.99f;
-	float m_densityBuoyancy = 1.0f;
-	float m_densityWeight = 0.0125f;
-	float m_temperatureAmount = 10.0f;
-	float m_temperatureDissipation = 0.995f;
-	float m_reactionAmount = 1.0f;
-	float m_reactionDecay = 0.003f;
-	float m_reactionExtinguishment = 0.01f;
-	float m_velocityDissipation = 0.995f;
-	float m_inputRadius = 0.04f;
-	float m_ambientTemperature = 0.0f;
-	float m_inputPos[3];
-	m_inputPos[0] = 0.5;
-	m_inputPos[1] = 0.1;
-	m_inputPos[2] = 0.5;
+    const int numStrips = (imageHeight - 1) / rez;
+    const int numTrisPerStrip = (imageWidth / rez) * 2 - 2;
+    std::cout << "Created lattice of " << numStrips << " strips with " << numTrisPerStrip << " triangles each" << std::endl;
+    std::cout << "Created " << numStrips * numTrisPerStrip << " triangles total" << std::endl;
 
-	float m_windNoiseFrequency = 0.1;
-	float m_windSpeedFrequency = 0.2f;
+    // first, configure the cube's VAO (and terrainVBO + terrainIBO)
+    unsigned int terrainVAO, terrainVBO, terrainIBO;
+    glGenVertexArrays(1, &terrainVAO);
+    glBindVertexArray(terrainVAO);
 
-	computeShader.use();
-	computeShader.setVec3("m_size", glm::vec3(WIDTH, HEIGHT, DEPTH));
-	computeShader.setFloat("dt", dt);
-	computeShader.setInt("m_iterations", m_iterations);
-	computeShader.setFloat("m_vorticityStrength", m_vorticityStrength);
-	computeShader.setFloat("m_densityAmount", m_densityAmount);
-	computeShader.setFloat("m_densityDissipation", m_densityDissipation);
-	computeShader.setFloat("m_densityBuoyancy", m_densityBuoyancy);
-	computeShader.setFloat("m_densityWeight", m_densityWeight);
-	computeShader.setFloat("m_temperatureAmount", m_temperatureAmount);
-	computeShader.setFloat("m_temperatureDissipation", m_temperatureDissipation);
-	computeShader.setFloat("m_reactionAmount", m_reactionAmount);
-	computeShader.setFloat("m_reactionDecay", m_reactionDecay);
-	computeShader.setFloat("m_reactionExtinguishment", m_reactionExtinguishment);
-	computeShader.setFloat("m_velocityDissipation", m_velocityDissipation);
-	computeShader.setFloat("m_inputRadius", m_inputRadius);
-	computeShader.setFloat("m_ambientTemperature", m_ambientTemperature);
-	computeShader.setVec3("m_inputPos", glm::vec3(m_inputPos[0], m_inputPos[1], m_inputPos[2]));
-	computeShader.setFloat("m_windNoiseFrequency", m_windNoiseFrequency);
-	computeShader.setFloat("m_windSpeedFrequency", m_windSpeedFrequency);
+    glGenBuffers(1, &terrainVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, terrainVBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), &vertices[0], GL_STATIC_DRAW);
 
-	// Create texture for opengl operation
-	// -----------------------------------
-	const GLsizei numTextures = 4;
-	GLuint textures[numTextures];
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
 
-	// Generate all textures at once
-	glGenTextures(numTextures, textures);
+    glGenBuffers(1, &terrainIBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, terrainIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned), &indices[0], GL_STATIC_DRAW);
 
-	generateWildfireTexture(0, textures, WILDFIRE_WIDTH, WILDFIRE_HEIGHT);
-	generateMultipleTextures3D(2, 3, textures, WIDTH, HEIGHT, DEPTH);
+    // render loop
+    // -----------
+    while (!glfwWindowShouldClose(window))
+    {
+        // per-frame time logic
+        // --------------------
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
 
-	const double fpsLimit = 1.0 / 60.0;
-	double lastUpdateTime = 0;  // number of seconds since the last loop
-	double lastFrameTime = 0;   // number of seconds since the last frame
-	int frameCounter = 0;
-	double lastFPSCheckTime = 0;
+        std::cout << deltaTime << "ms (" << 1.0f / deltaTime << " FPS)" << std::endl;
 
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+        // Process Input
+        // -----
+        processInput(window);
 
-	// Setup Dear ImGui style
-	ImGui::StyleColorsDark();
+        // Render
+        // ------
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	// Setup Platform/Renderer backends
-	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	ImGui_ImplOpenGL3_Init("#version 430");
+        // Be sure to activate shader when setting uniforms/drawing objects
+        heightMapShader.use();
 
-	//WildFireSimulation* fireSimulation = new WildFireSimulation();
-	//fireSimulation->InitializeWildFireFimulation();
+        // view/projection transformations
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100000.0f);
+        glm::mat4 view = camera.GetViewMatrix();
+        heightMapShader.setMat4("projection", projection);
+        heightMapShader.setMat4("view", view);
 
-	// This while loop repeats as fast as possible
-	while (!glfwWindowShouldClose(window))
-	{
-		double now = glfwGetTime();
-		double deltaTime = now - lastUpdateTime;
+        // world transformation
+        glm::mat4 model = glm::mat4(1.0f);
+        heightMapShader.setMat4("model", model);
 
-		glfwPollEvents();
+        // render the cube
+        glBindVertexArray(terrainVAO);
+        //        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        for (unsigned strip = 0; strip < numStrips; strip++)
+        {
+            glDrawElements(GL_TRIANGLE_STRIP,   // primitive type
+                numTrisPerStrip + 2,   // number of indices to render
+                GL_UNSIGNED_INT,     // index data type
+                (void*)(sizeof(unsigned) * (numTrisPerStrip + 2) * strip)); // offset to starting index
+        }
 
-		// update your application logic here,
-		// using deltaTime if necessary (for physics, tweening, etc.)
+        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+        // -------------------------------------------------------------------------------
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
 
-		// This if-statement only executes once every 60th of a second
-		if ((now - lastFrameTime) >= fpsLimit)
-		{
-			if (frameCounter >= 60) {
-				std::cout << "FPS: " << frameCounter / (now - lastFPSCheckTime) << std::endl;
-				frameCounter = 0;
-				lastFPSCheckTime = now;
-			}
-			else {
-				++frameCounter;
-			}
+    // optional: de-allocate all resources once they've outlived their purpose:
+    // ------------------------------------------------------------------------
+    glDeleteVertexArrays(1, &terrainVAO);
+    glDeleteBuffers(1, &terrainVBO);
+    glDeleteBuffers(1, &terrainIBO);
 
-
-			if ((++numberOfUpdatesUntilNextGridImageWrite) >= UPDATES_BETWEEN_GRID_IMAGE_WRITES) {
-				// save image
-				std::string filename = "OutputImages/" + getCurrentTimestamp() + ".png";
-				saveTextureToImage(textures[0], WILDFIRE_WIDTH, WILDFIRE_HEIGHT, filename);
-
-				//fireSimulation->UpdateWildFireSimulation(1.f / 60.f);
-				//fireSimulation->WriteGridResultsToImage();
-				// wildfire compute
-				wildfireCompute.use();
-				wildfireCompute.setFloat("iTime", now);
-				glDispatchCompute(WILDFIRE_WIDTH, WILDFIRE_HEIGHT, 1);
-				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-				numberOfUpdatesUntilNextGridImageWrite = 0;
-
-				glCopyImageSubData(textures[1], GL_TEXTURE_2D, 0, 0, 0, 0,
-					textures[0], GL_TEXTURE_2D, 0, 0, 0, 0,
-					WILDFIRE_WIDTH, WILDFIRE_HEIGHT, 1);
-			}
-
-			ImGui_ImplOpenGL3_NewFrame();
-			ImGui_ImplGlfw_NewFrame();
-			ImGui::NewFrame();
-			ImGui::Begin("Config");
-			ImGui::InputFloat("dt", &dt);
-			ImGui::InputInt("iterations", &m_iterations);
-			ImGui::InputFloat("vorticity strength", &m_vorticityStrength);
-			ImGui::InputFloat("density amount", &m_densityAmount);
-			ImGui::InputFloat("density dissipation", &m_densityDissipation);
-			ImGui::InputFloat("density buoyancy", &m_densityBuoyancy);
-			ImGui::InputFloat("density weight", &m_densityWeight);
-			ImGui::InputFloat("temperature amount", &m_temperatureAmount);
-			ImGui::InputFloat("temperature dissipation", &m_temperatureDissipation);
-			ImGui::InputFloat("reaction amount", &m_reactionAmount);
-			ImGui::InputFloat("reaction decay", &m_reactionDecay);
-			ImGui::InputFloat("reaction extinguishment", &m_reactionExtinguishment);
-			ImGui::InputFloat("velocity dissipation", &m_velocityDissipation);
-			ImGui::InputFloat("input radius", &m_inputRadius);
-			ImGui::InputFloat("ambient temperature", &m_ambientTemperature);
-			ImGui::InputFloat3("input position", m_inputPos);
-			ImGui::InputFloat("wind noise frequency", &m_windNoiseFrequency);
-			ImGui::InputFloat("wind speed frequency", &m_windSpeedFrequency);
-			ImGui::End();
-
-			// draw your frame here
-			computeShader.use();
-			computeShader.setFloat("iTime", now);
-			// set configs
-			computeShader.setFloat("dt", dt);
-			computeShader.setInt("m_iterations", m_iterations);
-			computeShader.setFloat("m_vorticityStrength", m_vorticityStrength);
-			computeShader.setFloat("m_densityAmount", m_densityAmount);
-			computeShader.setFloat("m_densityDissipation", m_densityDissipation);
-			computeShader.setFloat("m_densityBuoyancy", m_densityBuoyancy);
-			computeShader.setFloat("m_densityWeight", m_densityWeight);
-			computeShader.setFloat("m_temperatureAmount", m_temperatureAmount);
-			computeShader.setFloat("m_temperatureDissipation", m_temperatureDissipation);
-			computeShader.setFloat("m_reactionAmount", m_reactionAmount);
-			computeShader.setFloat("m_reactionDecay", m_reactionDecay);
-			computeShader.setFloat("m_reactionExtinguishment", m_reactionExtinguishment);
-			computeShader.setFloat("m_velocityDissipation", m_velocityDissipation);
-			computeShader.setFloat("m_inputRadius", m_inputRadius);
-			computeShader.setFloat("m_ambientTemperature", m_ambientTemperature);
-			computeShader.setVec3("m_inputPos", glm::vec3(m_inputPos[0], m_inputPos[1], m_inputPos[2]));
-			computeShader.setBool("gustActive", mouseDown);
-			computeShader.setVec2("gustPosition", gustPosition);
-			computeShader.setFloat("gustStrength", m_inputPos[0]);
-			computeShader.setFloat("m_windNoiseFrequency", m_windNoiseFrequency);
-			computeShader.setFloat("m_windSpeedFrequency", m_windSpeedFrequency);
-
-
-			glDispatchCompute(WIDTH, HEIGHT, DEPTH);
-
-			// make sure writing to image has finished before read
-			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-			// render image to quad
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			screenQuad.use();
-
-			//set shadertoy params
-			screenQuad.setFloat("iTime", now);
-
-			int width, height;
-			glfwGetWindowSize(window, &width, &height);
-			screenQuad.setVec3("iResolution", glm::vec3(width, height, width / (float)height));
-
-			// set mouse stuff
-			ImGui::Begin("Config");
-			bool isConfigFocused = ImGui::IsWindowFocused() || ImGui::IsWindowHovered();
-			ImGui::End();
-			bool mouseDownReal = mouseDown && isConfigFocused == false;
-			screenQuad.setBool("mouseDown", mouseDownReal);
-			if (mouseDownReal == true) {
-				double xpos, ypos;
-				glfwGetCursorPos(window, &xpos, &ypos);
-				mousePos.x = xpos;
-				mousePos.y = ypos;
-				screenQuad.setVec2("mousePos", mousePos);
-			}
-
-			renderQuad();
-
-			ImGui::Render();
-			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-			glfwSwapBuffers(window);
-
-			// only set lastFrameTime when you actually draw something
-			lastFrameTime = now;
-		}
-
-		// set lastUpdateTime every iteration
-		lastUpdateTime = now;
-	}
-
-	// optional: de-allocate all resources once they've outlived their purpose:
-	// ------------------------------------------------------------------------
-	glDeleteTextures(numTextures, textures);
-	glDeleteProgram(screenQuad.ID);
-	glDeleteProgram(computeShader.ID);
-	ImGui_ImplOpenGL3_Shutdown();
-	ImGui_ImplGlfw_Shutdown();
-	ImGui::DestroyContext();
-
-	glfwTerminate();
-
-	return EXIT_SUCCESS;
+    // glfw: terminate, clearing all previously allocated GLFW resources.
+    // ------------------------------------------------------------------
+    glfwTerminate();
+    return 0;
 }
 
-// renderQuad() renders a 1x1 XY quad in NDC
-// -----------------------------------------
-unsigned int quadVAO = 0;
-unsigned int quadVBO;
-void renderQuad()
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+// ---------------------------------------------------------------------------------------------------------
+void processInput(GLFWwindow* window)
 {
-	if (quadVAO == 0)
-	{
-		float quadVertices[] = {
-			// positions        // texture Coords
-			-1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
-			-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-			 1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
-			 1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-		};
-		// setup plane VAO
-		glGenVertexArrays(1, &quadVAO);
-		glGenBuffers(1, &quadVBO);
-		glBindVertexArray(quadVAO);
-		glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-	}
-	glBindVertexArray(quadVAO);
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-	glBindVertexArray(0);
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        camera.ProcessKeyboard(FORWARD, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        camera.ProcessKeyboard(BACKWARD, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        camera.ProcessKeyboard(LEFT, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        camera.ProcessKeyboard(RIGHT, deltaTime);
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
-	// make sure the viewport matches the new window dimensions; note that width and 
-	// height will be significantly larger than specified on retina displays.
-	glViewport(0, 0, width, height);
+    // make sure the viewport matches the new window dimensions; note that width and
+    // height will be significantly larger than specified on retina displays.
+    glViewport(0, 0, width, height);
 }
 
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-		mouseDown = true;
-
-		double xpos, ypos;
-		glfwGetCursorPos(window, &xpos, &ypos);
-
-		// Convert screen coordinates to simulation coordinates
-		int width, height;
-		glfwGetWindowSize(window, &width, &height);
-		gustPosition = glm::vec2(
-			(xpos / width) * 2.0f - 1.0f, // Normalize to [-1, 1] for X
-			1.0f - (ypos / height) * 2.0f  // Normalize to [-1, 1] for Y
-		);
-	}
-	else {
-		mouseDown = false;
-	}
+// glfw: whenever a key event occurs, this callback is called
+// ---------------------------------------------------------------------------------------------
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int modifiers)
+{
+     if (action == GLFW_PRESS)
+    {
+        switch (key)
+        {
+        case GLFW_KEY_SPACE:
+            useWireframe = 1 - useWireframe;
+            break;
+        case GLFW_KEY_G:
+            displayGrayscale = 1 - displayGrayscale;
+            break;
+        default:
+            break;
+        }
+    }
 }
 
+
+// glfw: whenever the mouse moves, this callback is called
+// -------------------------------------------------------
+void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+    if (firstMouse)
+    {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
+
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+
+    lastX = xpos;
+    lastY = ypos;
+
+    camera.ProcessMouseMovement(xoffset, yoffset);
+}
+
+// glfw: whenever the mouse scroll wheel scrolls, this callback is called
+// ----------------------------------------------------------------------
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    camera.ProcessMouseScroll(yoffset);
+}

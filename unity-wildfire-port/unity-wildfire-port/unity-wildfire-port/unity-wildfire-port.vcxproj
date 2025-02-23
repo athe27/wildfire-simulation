@@ -143,6 +143,8 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="heightmapReader.fs" />
+    <None Include="heightmapReader.vs" />
     <None Include="computeShader.cs" />
     <None Include="screenQuad.fs" />
     <None Include="screenQuad.vs" />
