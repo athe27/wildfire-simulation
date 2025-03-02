@@ -143,12 +143,17 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="heightmapReader.fs" />
-    <None Include="heightmapReader.vs" />
+    <None Include="gpuheight.fs" />
+    <None Include="gpuheight.vs" />
     <None Include="computeShader.cs" />
     <None Include="screenQuad.fs" />
     <None Include="screenQuad.vs" />
+    <None Include="gpuheight.tcs" />
+    <None Include="gpuheight.tes" />
     <None Include="wildfireCompute.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="HeightMaps\GreatLakeHeightmap.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

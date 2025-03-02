@@ -54,7 +54,22 @@
       <Filter>Source Files</Filter>
     </None>
     <None Include="wildfireCompute.cs" />
-    <None Include="heightmapReader.vs" />
-    <None Include="heightmapReader.fs" />
+    <None Include="gpuheight.tcs">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="gpuheight.tes">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="gpuheight.vs">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="gpuheight.fs">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="HeightMaps\GreatLakeHeightmap.png">
+      <Filter>Source Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>
