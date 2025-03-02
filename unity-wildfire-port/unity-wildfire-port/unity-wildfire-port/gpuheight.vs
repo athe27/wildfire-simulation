@@ -12,6 +12,6 @@ void main()
 {
     // convert XYZ vertex to XYZW homogeneous coordinate
     gl_Position = vec4(aPos, 1.0);
-    // pass texture coordinate though
+    // pass the texture coordinate through which will be used in the Tessellation Control Shader and then the Tessellation Evaluation Shader
     TexCoord = aTex;
 }

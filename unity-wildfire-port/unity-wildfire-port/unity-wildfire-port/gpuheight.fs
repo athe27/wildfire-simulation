@@ -1,9 +1,13 @@
-#version 330 core
+#version 410 core
 
-in vec2 TexCoord;      // Interpolated texture coordinates from the vertex shader
-out vec4 FragColor;     // Output color of the fragment
+// Texture coordinates from the Tessellation Evaluation Shader
+in vec2 TexCoord;
 
-uniform sampler2D landscapeTexture;  // The PNG texture
+// Output color of the fragment
+out vec4 FragColor;
+
+// The PNG texture we are reading from.
+uniform sampler2D landscapeTexture;
 
 void main()
 {

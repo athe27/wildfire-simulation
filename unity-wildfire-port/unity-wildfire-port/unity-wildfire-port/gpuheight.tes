@@ -9,7 +9,7 @@ uniform mat4 view;            // the view matrix
 uniform mat4 projection;      // the projection matrix
 
 // received from Tessellation Control Shader - all texture coordinates for the patch vertices
-in vec2 TextureCoord[];
+in vec2 AllTextureCoordinatesInPatch[];
 
 // send to Fragment Shader for coloring
 out float Height;
@@ -23,18 +23,20 @@ void main()
 
     // ----------------------------------------------------------------------
     // retrieve control point texture coordinates
-    vec2 t00 = TextureCoord[0];
-    vec2 t01 = TextureCoord[1];
-    vec2 t10 = TextureCoord[2];
-    vec2 t11 = TextureCoord[3];
+    vec2 t00 = AllTextureCoordinatesInPatch[0];
+    vec2 t01 = AllTextureCoordinatesInPatch[1];
+    vec2 t10 = AllTextureCoordinatesInPatch[2];
+    vec2 t11 = AllTextureCoordinatesInPatch[3];
 
     // bilinearly interpolate texture coordinate across patch
     vec2 t0 = (t01 - t00) * u + t00;
     vec2 t1 = (t11 - t10) * u + t10;
+
+    // Write to the TexCoord out so that the fragment shader can use it.
     TexCoord = (t1 - t0) * v + t0;
 
     // lookup texel at patch coordinate for height and scale + shift as desired
-    Height = texture(heightMap, TexCoord).y * 512.0 - 16.0;
+    Height = texture(heightMap, TexCoord).y * 768.0 - 0.0;
 
     // ----------------------------------------------------------------------
     // retrieve control point position coordinates

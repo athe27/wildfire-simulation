@@ -8,14 +8,15 @@ layout (vertices=4) out;
 // varying input from vertex shader
 in vec2 TexCoord[];
 // varying output to evaluation shader
-out vec2 TextureCoord[];
+out vec2 AllTextureCoordinatesInPatch[];
 
 void main()
 {
     // ----------------------------------------------------------------------
     // pass attributes through
     gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
-    TextureCoord[gl_InvocationID] = TexCoord[gl_InvocationID];
+    // Get the texture coordinates in this patch from the TexCoord array.
+    AllTextureCoordinatesInPatch[gl_InvocationID] = TexCoord[gl_InvocationID];
 
     // ----------------------------------------------------------------------
     // invocation zero controls tessellation levels for the entire patch

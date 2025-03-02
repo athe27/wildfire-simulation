@@ -25,9 +25,7 @@ const unsigned int SCR_HEIGHT = 600;
 const unsigned int NUM_PATCH_PTS = 4;
 
 // camera - give pretty starting point
-Camera camera(glm::vec3(67.0f, 627.5f, 169.9f),
-    glm::vec3(0.0f, 1.0f, 0.0f),
-    -128.1f, -42.4f);
+Camera camera(glm::vec3(67.0f, 627.5f, 169.9f), glm::vec3(0.0f, 1.0f, 0.0f), -128.1f, -42.4f);
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -38,7 +36,10 @@ float lastFrame = 0.0f;
 
 int main()
 {
-    // glfw: initialize and configure
+
+#pragma region Initialize
+
+    // GLFW: Initialize and Configure
     // ------------------------------
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -49,25 +50,31 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    // glfw window creation
+    // Create a new window using GLFW
     // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL: Terrain GPU", NULL, NULL);
-    if (window == NULL)
+    GLFWwindow* mainGLWindow = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Wildfire Simulation", NULL, NULL);
+
+    // If we failed to create a GL window, then just return.
+    if (mainGLWindow == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return -1;
     }
-    glfwMakeContextCurrent(window);
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    glfwSetKeyCallback(window, key_callback);
-    glfwSetCursorPosCallback(window, mouse_callback);
-    glfwSetScrollCallback(window, scroll_callback);
 
-    // tell GLFW to capture our mouse
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    // Ensure that this new window is our main window and can consume input correctly.
+    glfwMakeContextCurrent(mainGLWindow);
+    glfwSetFramebufferSizeCallback(mainGLWindow, framebuffer_size_callback);
 
-    // glad: load all OpenGL function pointers
+    // Set up our input call backs.
+    glfwSetKeyCallback(mainGLWindow, key_callback);
+    glfwSetCursorPosCallback(mainGLWindow, mouse_callback);
+    glfwSetScrollCallback(mainGLWindow, scroll_callback);
+
+    // Tell GLFW to capture our mouse.
+    glfwSetInputMode(mainGLWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+    // Glad: load all OpenGL function pointers
     // ---------------------------------------
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
@@ -75,52 +82,73 @@ int main()
         return -1;
     }
 
-    GLint maxTessLevel;
-    glGetIntegerv(GL_MAX_TESS_GEN_LEVEL, &maxTessLevel);
-    std::cout << "Max available tess level: " << maxTessLevel << std::endl;
-
-    // configure global opengl state
+    // Configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
 
-    // build and compile our shader program
-    // ------------------------------------
-    Shader tessHeightMapShader("gpuheight.vs", "gpuheight.fs", nullptr, "gpuheight.tcs", "gpuheight.tes");
+#pragma endregion Initialize
 
-    // load and create a texture
-    // -------------------------
-    unsigned int texture;
-    glGenTextures(1, &texture);
+    // Build and compile our shader program using our vertex, fragment, tessellation control, and tessellation evaluatioin shaders.
+    // ----------------------------------------------------------------------------------------------------------------------------
+    Shader heightMapShader("gpuheight.vs", "gpuheight.fs", nullptr, "gpuheight.tcs", "gpuheight.tes");
+
+#pragma region LoadingHeightMapTexture
+
+    // Load and create the heightmap texture.
+    // --------------------------------------
+    GLuint heightMapTexture;
+    glGenTextures(1, &heightMapTexture);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
-    // set the texture wrapping parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
+
+    // All upcoming GL_TEXTURE_2D operations now have effect on the heightMapTexture object.
+    glBindTexture(GL_TEXTURE_2D, heightMapTexture); 
+
+    // Set texture wrapping and filtering options
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    // set texture filtering parameters
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // load image, create texture and generate mipmaps
-    int width, height, nrChannels;
+
+    // Maybe this can be removed?
     stbi_set_flip_vertically_on_load(true);
-    unsigned char* data = stbi_load("HeightMaps/GreatLakeHeightmap.png", &width, &height, &nrChannels, STBI_rgb_alpha);
-    if (data)
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-        
-        tessHeightMapShader.setInt("heightMap", 0);
-        std::cout << "Loaded heightmap of size " << height << " x " << width << std::endl;
-    }
-    else
-    {
-        std::cout << "Failed to load texture" << std::endl;
-    }
 
-    stbi_image_free(data);
+    // Load the heightmap image, create the texture, and generate mipmaps.
+    int heightmapImageWidth, heightmapImageHeight, heightmapImageChannelCount;
+    
+    // It is essential that we read the image with RGBA. Otherwise, we will face a crash when trying to generate a texture from it.
+    // By default, the heightmap image only has 2 textures.
+    unsigned char* heightMapData = stbi_load("HeightMaps/GreatLakeHeightmap.png", &heightmapImageWidth, &heightmapImageHeight, &heightmapImageChannelCount, STBI_rgb_alpha);
 
+    // If we failed to read from the heightmap data, then just return.
+    if (heightMapData == nullptr) {
+        std::cout << "Failed to load heightmap texture" << std::endl;
+        return -1;
+    }
+    
+    // Generate the OpenGL texture from the heightmap image.
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, heightmapImageWidth, heightmapImageHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, heightMapData);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    // Set the heightmap shader (which is shader 0) as a parameter for the shader program.
+    heightMapShader.setInt("heightMap", 0);
+
+    // Output the size of the heightmap.
+    std::cout << "Loaded heightmap of size " << heightmapImageHeight << " x " << heightmapImageWidth << std::endl;
+
+    // Make sure to free the data when all is said and done.
+    stbi_image_free(heightMapData);
+
+#pragma endregion LoadingHeightMapTexture
+
+#pragma region LoadingLandscapeTexture
+
+    // Load and create the landscape texture for the fragment shader.
+    // --------------------------------------------------------------
     GLuint landscapeTexture;
     glGenTextures(1, &landscapeTexture);
     glActiveTexture(GL_TEXTURE1);
+
+    // All upcoming GL_TEXTURE_2D operations now have effect on the landscapeTexture object.
     glBindTexture(GL_TEXTURE_2D, landscapeTexture);
 
     // Set texture wrapping and filtering options
@@ -130,54 +158,75 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     // Load the PNG file (use stb_image or another image loader)
-    int landscapeWidth, landscapeHeight, landscapeChannelCount;
-    unsigned char* landscapeData = stbi_load("Landscapes/forested_landscape.png", &landscapeWidth, &landscapeHeight, &landscapeChannelCount, 0);
-    if (landscapeData)
-    {
-        GLenum format = (landscapeChannelCount == 4) ? GL_RGBA : GL_RGB;
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, landscapeData);
-        glGenerateMipmap(GL_TEXTURE_2D);
+    int landscapeImageWidth, landscapeImageHeight, landscapeImageChannelCount;
+
+    // Note that we do not read from RGBA in this load.
+    unsigned char* landscapeData = stbi_load("Landscapes/forested_landscape.png", &landscapeImageWidth, &landscapeImageHeight, &landscapeImageChannelCount, 0);
+
+    // If we failed to read from the landscape data, then just return.
+    if (landscapeData == nullptr) {
+        std::cout << "Failed to load landscape texture" << std::endl;
+        return -1;
     }
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, landscapeImageWidth, landscapeImageHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, landscapeData);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    // TODO for Katherine: You can read the data for the landscape texture here to determine which pixels/grid locations need a tree.
+
+    // Output the size of the heightmap.
+    std::cout << "Loaded landscape texture of size " << landscapeImageHeight << " x " << landscapeImageWidth << std::endl;
+
+    // Make sure to free the data when all is said and done.
     stbi_image_free(landscapeData);
+
+#pragma endregion LoadingLandscapeTexture
+
+#pragma region GenerateVertices
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
     std::vector<float> vertices;
 
-    unsigned rez = 40;
-    for (unsigned i = 0; i <= rez - 1; i++)
+    // This affects the number of vertices that will be created.
+    unsigned int resolutionFactor = 20;
+
+    for (unsigned i = 0; i <= resolutionFactor - 1; i++)
     {
-        for (unsigned j = 0; j <= rez - 1; j++)
+        for (unsigned j = 0; j <= resolutionFactor - 1; j++)
         {
-            vertices.push_back(-width / 2.0f + width * i / (float)rez); // v.x
+            vertices.push_back(-heightmapImageWidth / 2.0f + heightmapImageWidth * i / (float)resolutionFactor); // v.x
             vertices.push_back(0.0f); // v.y
-            vertices.push_back(-height / 2.0f + height * j / (float)rez); // v.z
-            vertices.push_back(i / (float)rez); // u
-            vertices.push_back(j / (float)rez); // v
+            vertices.push_back(-heightmapImageHeight / 2.0f + heightmapImageHeight * j / (float)resolutionFactor); // v.z
+            vertices.push_back(i / (float)resolutionFactor); // u
+            vertices.push_back(j / (float)resolutionFactor); // v
 
-            vertices.push_back(-width / 2.0f + width * (i + 1) / (float)rez); // v.x
+            vertices.push_back(-heightmapImageWidth / 2.0f + heightmapImageWidth * (i + 1) / (float)resolutionFactor); // v.x
             vertices.push_back(0.0f); // v.y
-            vertices.push_back(-height / 2.0f + height * j / (float)rez); // v.z
-            vertices.push_back((i + 1) / (float)rez); // u
-            vertices.push_back(j / (float)rez); // v
+            vertices.push_back(-heightmapImageHeight / 2.0f + heightmapImageHeight * j / (float)resolutionFactor); // v.z
+            vertices.push_back((i + 1) / (float)resolutionFactor); // u
+            vertices.push_back(j / (float)resolutionFactor); // v
 
-            vertices.push_back(-width / 2.0f + width * i / (float)rez); // v.x
+            vertices.push_back(-heightmapImageWidth / 2.0f + heightmapImageWidth * i / (float)resolutionFactor); // v.x
             vertices.push_back(0.0f); // v.y
-            vertices.push_back(-height / 2.0f + height * (j + 1) / (float)rez); // v.z
-            vertices.push_back(i / (float)rez); // u
-            vertices.push_back((j + 1) / (float)rez); // v
+            vertices.push_back(-heightmapImageHeight / 2.0f + heightmapImageHeight * (j + 1) / (float)resolutionFactor); // v.z
+            vertices.push_back(i / (float)resolutionFactor); // u
+            vertices.push_back((j + 1) / (float)resolutionFactor); // v
 
-            vertices.push_back(-width / 2.0f + width * (i + 1) / (float)rez); // v.x
+            vertices.push_back(-heightmapImageWidth / 2.0f + heightmapImageWidth * (i + 1) / (float)resolutionFactor); // v.x
             vertices.push_back(0.0f); // v.y
-            vertices.push_back(-height / 2.0f + height * (j + 1) / (float)rez); // v.z
-            vertices.push_back((i + 1) / (float)rez); // u
-            vertices.push_back((j + 1) / (float)rez); // v
+            vertices.push_back(-heightmapImageHeight / 2.0f + heightmapImageHeight * (j + 1) / (float)resolutionFactor); // v.z
+            vertices.push_back((i + 1) / (float)resolutionFactor); // u
+            vertices.push_back((j + 1) / (float)resolutionFactor); // v
         }
     }
-    std::cout << "Loaded " << rez * rez << " patches of 4 control points each" << std::endl;
-    std::cout << "Processing " << rez * rez * 4 << " vertices in vertex shader" << std::endl;
 
-    // first, configure the cube's VAO (and terrainVBO)
+    std::cout << "Loaded " << resolutionFactor * resolutionFactor << " patches of 4 control points each" << std::endl;
+    std::cout << "Processing " << resolutionFactor * resolutionFactor * 4 << " vertices in vertex shader" << std::endl;
+
+#pragma endregion GenerateVertices
+
+    // First, configure the cube's VAO (and terrainVBO)
     unsigned int terrainVAO, terrainVBO;
     glGenVertexArrays(1, &terrainVAO);
     glBindVertexArray(terrainVAO);
@@ -186,18 +235,21 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, terrainVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertices.size(), &vertices[0], GL_STATIC_DRAW);
 
-    // position attribute
+    // Position attribute
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    // texCoord attribute
+
+    // TexCoord attribute
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(sizeof(float) * 3));
     glEnableVertexAttribArray(1);
 
     glPatchParameteri(GL_PATCH_VERTICES, NUM_PATCH_PTS);
 
+#pragma region RenderingLoop
+
     // render loop
     // -----------
-    while (!glfwWindowShouldClose(window))
+    while (!glfwWindowShouldClose(mainGLWindow))
     {
         // per-frame time logic
         // --------------------
@@ -207,7 +259,7 @@ int main()
 
         // input
         // -----
-        processInput(window);
+        processInput(mainGLWindow);
 
         // render
         // ------
@@ -215,32 +267,35 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // be sure to activate shader when setting uniforms/drawing objects
-        tessHeightMapShader.use();
+        heightMapShader.use();
 
-        // view/projection transformations
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100000.0f);
-        glm::mat4 view = camera.GetViewMatrix();
-        tessHeightMapShader.setMat4("projection", projection);
-        tessHeightMapShader.setMat4("view", view);
+        // Calculate the current projection and camera view matrix.
+        glm::mat4 cameraProjection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100000.0f);
+        glm::mat4 cameraViewMatrix = camera.GetViewMatrix();
 
-        // world transformation
+        heightMapShader.setMat4("projection", cameraProjection);
+        heightMapShader.setMat4("view", cameraViewMatrix);
+
+        // World transformation
         glm::mat4 model = glm::mat4(1.0f);
-        tessHeightMapShader.setMat4("model", model);
+        heightMapShader.setMat4("model", model);
 
         // Set the landscape texture.
-        tessHeightMapShader.setInt("landscapeTexture", 1);
+        heightMapShader.setInt("landscapeTexture", 1);
 
-        // render the terrain
+        // Render the terrain
         glBindVertexArray(terrainVAO);
-        glDrawArrays(GL_PATCHES, 0, NUM_PATCH_PTS * rez * rez);
+        glDrawArrays(GL_PATCHES, 0, NUM_PATCH_PTS * resolutionFactor * resolutionFactor);
 
-        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+        // GLFW: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
-        glfwSwapBuffers(window);
+        glfwSwapBuffers(mainGLWindow);
         glfwPollEvents();
     }
 
-    // optional: de-allocate all resources once they've outlived their purpose:
+#pragma endregion RenderingLoop
+
+    // De-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------
     glDeleteVertexArrays(1, &terrainVAO);
     glDeleteBuffers(1, &terrainVBO);
@@ -255,9 +310,7 @@ int main()
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow* window)
 {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-
+    // Change this speed to affect how fast you want the camera to zip around the terrain.
     constexpr float CAMERA_SPEED = 100.f;
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
@@ -283,10 +336,14 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 // ---------------------------------------------------------------------------------------------
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int modifiers)
 {
+    // Used to close the window if the user presses ESC.
     if (action == GLFW_PRESS)
     {
         switch (key)
         {
+        case GLFW_KEY_ESCAPE:
+            glfwSetWindowShouldClose(window, true);
+            break;
         default:
             break;
         }
