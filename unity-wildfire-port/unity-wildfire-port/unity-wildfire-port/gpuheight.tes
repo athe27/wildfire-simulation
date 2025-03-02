@@ -13,6 +13,7 @@ in vec2 TextureCoord[];
 
 // send to Fragment Shader for coloring
 out float Height;
+out vec2 TexCoord;
 
 void main()
 {
@@ -30,10 +31,10 @@ void main()
     // bilinearly interpolate texture coordinate across patch
     vec2 t0 = (t01 - t00) * u + t00;
     vec2 t1 = (t11 - t10) * u + t10;
-    vec2 texCoord = (t1 - t0) * v + t0;
+    TexCoord = (t1 - t0) * v + t0;
 
     // lookup texel at patch coordinate for height and scale + shift as desired
-    Height = texture(heightMap, texCoord).y * 512.0 - 16.0;
+    Height = texture(heightMap, TexCoord).y * 512.0 - 16.0;
 
     // ----------------------------------------------------------------------
     // retrieve control point position coordinates

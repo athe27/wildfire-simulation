@@ -1,15 +1,11 @@
 #version 330 core
 
-out vec4 FragColor;
+in vec2 TexCoord;      // Interpolated texture coordinates from the vertex shader
+out vec4 FragColor;     // Output color of the fragment
 
-in float Height;
-
-#define HEIGHT_SHIFT 48
-#define HEIGHT_SCALAR (1/256.0f)
+uniform sampler2D landscapeTexture;  // The PNG texture
 
 void main()
 {
-    // shift and scale the height into a grayscale value
-    float h = (Height + HEIGHT_SHIFT) * HEIGHT_SCALAR;
-    FragColor = vec4(h, h, h, 1.0);
+    FragColor = texture(landscapeTexture, TexCoord);  // Sample the texture at given coordinates
 }

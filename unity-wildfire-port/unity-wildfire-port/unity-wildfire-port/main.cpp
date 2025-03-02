@@ -118,6 +118,28 @@ int main()
 
     stbi_image_free(data);
 
+    GLuint landscapeTexture;
+    glGenTextures(1, &landscapeTexture);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, landscapeTexture);
+
+    // Set texture wrapping and filtering options
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Load the PNG file (use stb_image or another image loader)
+    int landscapeWidth, landscapeHeight, landscapeChannelCount;
+    unsigned char* landscapeData = stbi_load("Landscapes/forested_landscape.png", &landscapeWidth, &landscapeHeight, &landscapeChannelCount, 0);
+    if (landscapeData)
+    {
+        GLenum format = (landscapeChannelCount == 4) ? GL_RGBA : GL_RGB;
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, landscapeData);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    stbi_image_free(landscapeData);
+
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
     std::vector<float> vertices;
@@ -204,6 +226,9 @@ int main()
         // world transformation
         glm::mat4 model = glm::mat4(1.0f);
         tessHeightMapShader.setMat4("model", model);
+
+        // Set the landscape texture.
+        tessHeightMapShader.setInt("landscapeTexture", 1);
 
         // render the terrain
         glBindVertexArray(terrainVAO);
