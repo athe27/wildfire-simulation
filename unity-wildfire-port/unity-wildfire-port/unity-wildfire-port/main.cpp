@@ -42,7 +42,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 void renderQuad();
 
 // settings
-const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_WIDTH = 600;
 const unsigned int SCR_HEIGHT = 600;
 
 // texture size
@@ -217,6 +217,10 @@ GLboolean generateWildfireTexture(GLsizei offset, GLuint* textures,
 			}
 
 			data[data_index + 1] = STATE_NOT_ON_FIRE;
+
+			/*if (y > 1000 && y < 1100 && x > 1000 && x < 1100) {
+				data[data_index + 1] = STATE_ON_FIRE;
+			}*/
 		}
 	}
 
@@ -471,17 +475,37 @@ int main(int argc, char* argv[])
 				//fireSimulation->UpdateWildFireSimulation(1.f / 60.f);
 				//fireSimulation->WriteGridResultsToImage();
 				// wildfire compute
-				wildfireCompute.use();
-				wildfireCompute.setFloat("iTime", now);
-				glDispatchCompute(WILDFIRE_WIDTH, WILDFIRE_HEIGHT, 1);
-				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-				numberOfUpdatesUntilNextGridImageWrite = 0;
-
-				glCopyImageSubData(textures[1], GL_TEXTURE_2D, 0, 0, 0, 0,
-					textures[0], GL_TEXTURE_2D, 0, 0, 0, 0,
-					WILDFIRE_WIDTH, WILDFIRE_HEIGHT, 1);
+				
 			}
+			wildfireCompute.use();
+			wildfireCompute.setInt("frameCounter", frameCounter);
+			wildfireCompute.setFloat("iTime", now);
+			wildfireCompute.setBool("mouseDown", mouseDown);
+			wildfireCompute.setVec2("mousePos", mousePos);
+
+			/*if (mouseDown == true) {
+				mouseDown = false;
+			}*/
+			wildfireCompute.setBool("mouseDown", mouseDown);
+			if (mouseDown == true) {
+				mouseDown = false;
+				double xpos, ypos;
+				glfwGetCursorPos(window, &xpos, &ypos);
+				int width, height;
+				glfwGetWindowSize(window, &width, &height);
+				mousePos.x = xpos / width;
+				mousePos.y = 1.0 - ypos / height;
+				wildfireCompute.setVec2("mousePos", mousePos);
+			}
+
+			glDispatchCompute(WILDFIRE_WIDTH, WILDFIRE_HEIGHT, 1);
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+			numberOfUpdatesUntilNextGridImageWrite = 0;
+
+			glCopyImageSubData(textures[1], GL_TEXTURE_2D, 0, 0, 0, 0,
+				textures[0], GL_TEXTURE_2D, 0, 0, 0, 0,
+				WILDFIRE_WIDTH, WILDFIRE_HEIGHT, 1);
 
 			/*ImGui_ImplOpenGL3_NewFrame();
 			ImGui_ImplGlfw_NewFrame();

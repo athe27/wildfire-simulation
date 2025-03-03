@@ -30,15 +30,23 @@ layout(rgba32f, binding = 0) uniform image2D materialStateHeightTexture_READ;
 layout(rgba32f, binding = 1) uniform image2D materialStateHeightTexture_WRITE;
 
 layout(location = 0) uniform float iTime;
+uniform int frameCounter = 0;
+uniform bool mouseDown;
+uniform vec2 mousePos;
 
-uniform float FIRE_PROB = 0.01f;
+uniform int windDirectionIndex = 6;
+
+uniform float FIRE_PROB = 0.0f;
 uniform float FLAMMABLE_PROBABILITY_FOR_GRASS = 0.0f;
 uniform float FLAMMABLE_PROBABILITY_FOR_WATER = 0.0f;
 uniform float FLAMMABLE_PROBABILITY_FOR_BEDROCK = 0.1f;
 uniform float FLAMMABLE_PROBABILITY_FOR_TREE = 0.75f;
 
-uniform float GRASS_REGROW_PROBABILITY = 0.1f;
-uniform float TREE_REGROW_PROBABILITY = 0.2f;
+uniform float GRASS_REGROW_PROBABILITY = 0.0f;
+uniform float TREE_REGROW_PROBABILITY = 0.0f;
+
+uniform bool USE_TEMP = true;
+uniform bool USE_WIND = true;
 
 // ----------------------------------------------------------------------------
 //
@@ -103,6 +111,205 @@ float GetHeight(vec4 cellData)
     return cellData.z;
 }
 
+float CalculateTemperature()
+{
+    if (!USE_TEMP)
+    {
+        return 20.0f; // Default temperature if system is disabled
+    }
+
+    int hourOfDay = frameCounter % 24;
+    float average_temp = 20.0f;
+    float amplitude = 5.0f;
+
+    // Use sinusoidal pattern similar to C++ implementation
+    float temp = average_temp + amplitude * sin(2.0 * 3.14159265 * float(hourOfDay) / 24.0 - 3.14159265 / 2.0);
+
+    // Add some noise
+    temp += (random(vec2(hourOfDay, frameCounter)) - 0.5) * 2.0;
+
+    return temp;
+}
+
+// Check if neighbors in wind direction are on fire
+bool CheckNeighborOnFire(vec2 coord)
+{
+    if (!USE_WIND)
+    {
+        // Check all neighbors if wind system is disabled
+        for (int i = -1; i <= 1; i++)
+        {
+            for (int j = -1; j <= 1; j++)
+            {
+                if (i == 0 && j == 0) continue;
+
+                vec4 otherCellData = GetCellData(coord + vec2(i, j));
+                int otherCellState = GetState(otherCellData);
+
+                if (otherCellState == STATE_ON_FIRE)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Define wind direction offsets based on windDirectionIndex
+    // 0: calm, 1: S, 2: N, 3: W, 4: E, 5: SW, 6: SE, 7: NW, 8: NE
+    bool neighborOnFire = false;
+
+    switch (windDirectionIndex)
+    {
+        case 0: // Calm - check all directions
+            for (int i = -1; i <= 1; i++)
+            {
+                for (int j = -1; j <= 1; j++)
+                {
+                    if (i == 0 && j == 0) continue;
+
+                    vec4 otherCellData = GetCellData(coord + vec2(i, j));
+                    int otherCellState = GetState(otherCellData);
+
+                    if (otherCellState == STATE_ON_FIRE)
+                    {
+                        neighborOnFire = true;
+                    }
+                }
+            }
+            break;
+
+        case 1: // South - check north, northeast, northwest, east, west
+            for (int i = -1; i <= 1; i++)
+            {
+                for (int j = -1; j <= 0; j++)
+                {
+                    if (i == 0 && j == 0) continue;
+
+                    vec4 otherCellData = GetCellData(coord + vec2(i, j));
+                    int otherCellState = GetState(otherCellData);
+
+                    if (otherCellState == STATE_ON_FIRE)
+                    {
+                        neighborOnFire = true;
+                    }
+                }
+            }
+            break;
+
+        case 2: // North - check south, southeast, southwest, east, west
+            for (int i = -1; i <= 1; i++)
+            {
+                for (int j = 0; j <= 1; j++)
+                {
+                    if (i == 0 && j == 0) continue;
+
+                    vec4 otherCellData = GetCellData(coord + vec2(i, j));
+                    int otherCellState = GetState(otherCellData);
+
+                    if (otherCellState == STATE_ON_FIRE)
+                    {
+                        neighborOnFire = true;
+                    }
+                }
+            }
+            break;
+
+        case 3: // West - check east, northeast, southeast, north, south
+            for (int i = -1; i <= 0; i++)
+            {
+                for (int j = -1; j <= 1; j++)
+                {
+                    if (i == 0 && j == 0) continue;
+
+                    vec4 otherCellData = GetCellData(coord + vec2(i, j));
+                    int otherCellState = GetState(otherCellData);
+
+                    if (otherCellState == STATE_ON_FIRE)
+                    {
+                        neighborOnFire = true;
+                    }
+                }
+            }
+            break;
+
+        case 4: // East - check west, northwest, southwest, north, south
+            for (int i = 0; i <= 1; i++)
+            {
+                for (int j = -1; j <= 1; j++)
+                {
+                    if (i == 0 && j == 0) continue;
+
+                    vec4 otherCellData = GetCellData(coord + vec2(i, j));
+                    int otherCellState = GetState(otherCellData);
+
+                    if (otherCellState == STATE_ON_FIRE)
+                    {
+                        neighborOnFire = true;
+                    }
+                }
+            }
+            break;
+
+        case 5: // Southwest - check northeast, north, east
+            if (GetState(GetCellData(coord + vec2(-1, -1))) == STATE_ON_FIRE ||
+                GetState(GetCellData(coord + vec2(0, -1))) == STATE_ON_FIRE ||
+                GetState(GetCellData(coord + vec2(-1, 0))) == STATE_ON_FIRE)
+            {
+                neighborOnFire = true;
+            }
+            break;
+
+        case 6: // Southeast - check northwest, north, west
+            if (GetState(GetCellData(coord + vec2(1, -1))) == STATE_ON_FIRE ||
+                GetState(GetCellData(coord + vec2(0, -1))) == STATE_ON_FIRE ||
+                GetState(GetCellData(coord + vec2(1, 0))) == STATE_ON_FIRE)
+            {
+                neighborOnFire = true;
+            }
+            break;
+
+        case 7: // Northwest - check southeast, south, east
+            if (GetState(GetCellData(coord + vec2(-1, 1))) == STATE_ON_FIRE ||
+                GetState(GetCellData(coord + vec2(0, 1))) == STATE_ON_FIRE ||
+                GetState(GetCellData(coord + vec2(-1, 0))) == STATE_ON_FIRE)
+            {
+                neighborOnFire = true;
+            }
+            break;
+
+        case 8: // Northeast - check southwest, south, west
+            if (GetState(GetCellData(coord + vec2(1, 1))) == STATE_ON_FIRE ||
+                GetState(GetCellData(coord + vec2(0, 1))) == STATE_ON_FIRE ||
+                GetState(GetCellData(coord + vec2(1, 0))) == STATE_ON_FIRE)
+            {
+                neighborOnFire = true;
+            }
+            break;
+    }
+
+    return neighborOnFire;
+}
+
+// mouse fire spawn
+bool IsImpactedByMouse(vec2 coord, inout vec4 cellData)
+{
+    if (mouseDown == true)
+    {
+        ivec2 computeSize = ivec2(gl_NumWorkGroups.xy);
+        vec2 fireCenter = computeSize * mousePos;
+
+        float distance = length(fireCenter - coord);
+
+        if (distance < 10)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // Process a single cell
 void processCell(vec2 coord, inout vec4 cellData)
 {
@@ -123,30 +330,11 @@ void processCell(vec2 coord, inout vec4 cellData)
             }
         }
 
-        bool neighborOnFire = false;
-
-        for (int i = -1; i <= 1; i++)
-        {
-            for (int j = -1; j <= 1; j++)
-            {
-                if (i == 0 && j == 0)
-                {
-                    continue;
-                }
-
-                vec4 otherCellData = GetCellData(coord + vec2(i, j));
-                int otherCellState = GetState(otherCellData);
-
-                if (otherCellState == STATE_ON_FIRE)
-                {
-                    neighborOnFire = true;
-                }
-            }
-        }
+        bool neighborOnFire = CheckNeighborOnFire(coord);
 
         float fireCatchProb = random(coord);
 
-        if (neighborOnFire || FIRE_PROB > fireCatchProb)
+        if (neighborOnFire || FIRE_PROB > fireCatchProb || IsImpactedByMouse(coord, cellData))
         {
             float flammableProb = 0.0f;
             if (cellMaterial == MATERIAL_GRASS)
@@ -167,6 +355,14 @@ void processCell(vec2 coord, inout vec4 cellData)
             }
 
             float randomProb = random(coord);
+
+            float currentTemperature = CalculateTemperature();
+            bool isHot = currentTemperature > 25.0f;
+            if (isHot)
+            {
+                randomProb *= 2;
+            }
+            
             if (flammableProb > randomProb)
             {
                 SetState(cellData, STATE_ON_FIRE);
@@ -175,7 +371,11 @@ void processCell(vec2 coord, inout vec4 cellData)
     } 
     else if (cellState == STATE_ON_FIRE)
     {
-        SetState(cellData, STATE_DESTROYED);
+        float randomProb = random(coord);
+        if (randomProb < 0.01f)
+        {
+            SetState(cellData, STATE_DESTROYED);
+        }
     }
     else if (cellState == STATE_DESTROYED)
     {
