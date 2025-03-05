@@ -133,7 +133,7 @@ vec3 SampleVelocityBilinear(vec3 voxelCoord, vec3 size)
     int zp1 = int(min(size.z - 1, z + 1));
 
     vec3 x0 = GetVelocityDensityData(vec3(x, y, z)).xyz * (1.0f - fx) + GetVelocityDensityData(vec3(xp1, y, z)).xyz * fx;
-    vec3 x1 = GetVelocityDensityData(vec3(x, y, zp1)).xyz * (1.0f - fx) + GetVelocityDensityData(vec3(xp1, y, zp1)).xyz  * fx;
+    vec3 x1 = GetVelocityDensityData(vec3(x, y, zp1)).xyz * (1.0f - fx) + GetVelocityDensityData(vec3(xp1, y, zp1)).xyz * fx;
 
     vec3 x2 = GetVelocityDensityData(vec3(x, yp1, z)).xyz * (1.0f - fx) + GetVelocityDensityData(vec3(xp1, yp1, z)).xyz * fx;
     vec3 x3 = GetVelocityDensityData(vec3(x, yp1, zp1)).xyz * (1.0f - fx) + GetVelocityDensityData(vec3(xp1, yp1, zp1)).xyz * fx;
@@ -168,7 +168,7 @@ float SampleBilinear(bool otherData, vec3 voxelCoord, vec3 size, int index)
 
         x2 = GetPressureTempPhiReactionData(vec3(x, yp1, z))[index] * (1.0f - fx) + GetPressureTempPhiReactionData(vec3(xp1, yp1, z))[index] * fx;
         x3 = GetPressureTempPhiReactionData(vec3(x, yp1, zp1))[index] * (1.0f - fx) + GetPressureTempPhiReactionData(vec3(xp1, yp1, zp1))[index] * fx;
-    } 
+    }
     else
     {
         x0 = GetVelocityDensityData(vec3(x, y, z))[index] * (1.0f - fx) + GetVelocityDensityData(vec3(xp1, y, z))[index] * fx;
@@ -339,7 +339,7 @@ void ComputeVorticityConfinement(vec3 voxelCoord, inout vec4 curlObstaclesData, 
 
     vec3 idxB = vec3(voxelCoord.x, max(0, voxelCoord.y - 1), voxelCoord.z);
     vec3 idxT = vec3(voxelCoord.x, min(m_size.y - 1, voxelCoord.y + 1), voxelCoord.z);
-    
+
     vec3 idxD = vec3(voxelCoord.x, voxelCoord.y, max(0, voxelCoord.z - 1));
     vec3 idxU = vec3(voxelCoord.x, voxelCoord.y, min(m_size.z - 1, voxelCoord.z + 1));
 
