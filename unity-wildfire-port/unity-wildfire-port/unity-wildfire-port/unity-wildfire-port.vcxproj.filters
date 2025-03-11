@@ -66,6 +66,8 @@
     <None Include="gpuheight.fs">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="tree_vertex.vs" />
+    <None Include="tree_fragment.fs" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="HeightMaps\GreatLakeHeightmap.png">

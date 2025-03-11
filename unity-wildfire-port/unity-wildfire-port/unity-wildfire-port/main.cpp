@@ -21,6 +21,16 @@
 
 #include <vector>
 
+//#include "OpenGLMarkerObjects.h"
+//#include "OpenGLCommon.h"
+//#include "OpenGLWindow.h"
+//#include "OpenGLViewer.h"
+//#include "TinyObjLoader.h"
+
+
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
+
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
@@ -69,6 +79,66 @@ const unsigned int UPDATES_BETWEEN_GRID_IMAGE_WRITES = 30;
 
 bool mouseDown = false;
 glm::vec2 mousePos = glm::vec2(0.0f, 0.0f);
+
+bool loadOBJ(const char* path, std::vector<float>& vertices, std::vector<unsigned int>& indices) {
+    auto file = std::ifstream(path);
+
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+
+    std::string err;
+    std::string warning;
+
+    bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &err, &file);
+
+    if (!err.empty()) {
+        std::cerr << "Error: " << err << std::endl;
+    }
+
+    if (!ret) {
+        std::cerr << "Failed to load .obj file" << std::endl;
+        return false;
+    }
+
+    // Ensure the size of vertices and normals match
+    size_t numVertices = attrib.vertices.size() / 3;
+    size_t numNormals = attrib.normals.size() / 3;
+
+    for (const auto& shape : shapes) {
+        for (const auto& index : shape.mesh.indices) {
+            // Check if the indices are valid
+            if (index.vertex_index >= numVertices) {
+                    std::cerr << "Invalid vertex index: " << index.vertex_index << std::endl;
+                    continue;
+            }
+
+            if (index.normal_index >= 0 && index.normal_index >= numNormals) {
+                std::cerr << "Invalid normal index: " << index.normal_index << std::endl;
+                continue;
+            }
+
+            // Vertex position
+            vertices.push_back(attrib.vertices[3 * index.vertex_index + 0]);
+            vertices.push_back(attrib.vertices[3 * index.vertex_index + 1]);
+            vertices.push_back(attrib.vertices[3 * index.vertex_index + 2]);
+
+            // Normal (optional, use if available)
+            if (index.normal_index >= 0) {
+                vertices.push_back(attrib.normals[3 * index.normal_index + 0]);
+                vertices.push_back(attrib.normals[3 * index.normal_index + 1]);
+                vertices.push_back(attrib.normals[3 * index.normal_index + 2]);
+            }
+
+            indices.push_back(index.vertex_index);
+        }
+    }
+
+    std::cout << "numVertices: " << numVertices << std::endl;
+    std::cout << "numNormals: " << numNormals << std::endl;
+
+    return true;
+}
 
 GLboolean generateWildfireTexture(GLsizei offset, GLuint* textures,
     GLsizei width, GLsizei height) {
@@ -246,6 +316,7 @@ int main()
     // Build and compile our shader program using our vertex, fragment, tessellation control, and tessellation evaluatioin shaders.
     // ----------------------------------------------------------------------------------------------------------------------------
     Shader heightMapShader("gpuheight.vs", "gpuheight.fs", nullptr, "gpuheight.tcs", "gpuheight.tes");
+    Shader treeShaderProgram("tree_vertex.vs", "tree_fragment.fs");
 
 #pragma region LoadingHeightMapTexture
 
@@ -348,7 +419,6 @@ int main()
     generateWildfireTexture(2, wildfireTextures, WILDFIRE_WIDTH, WILDFIRE_HEIGHT);
 
     const double fpsLimit = 1.0 / 60.0;
-    double lastUpdateTime = 0;  // number of seconds since the last loop
     double lastFrameTime = 0;   // number of seconds since the last frame
     int frameCounter = 0;
     double lastFPSCheckTime = 0;
@@ -398,12 +468,51 @@ int main()
 
 #pragma endregion GenerateVertices
 
+#pragma region TreeRendering
+
+    std::vector<float> tree_vertices;
+    std::vector<unsigned int> tree_indices;
+    if (!loadOBJ("Meshes/tree.obj", tree_vertices, tree_indices)) {
+        std::cerr << "Failed to load tree.obj" << std::endl;
+        return -1;
+    }
+
+    unsigned int TREE_VAO, TREE_VBO, TREE_EBO;
+    glGenVertexArrays(1, &TREE_VAO);
+    glGenBuffers(1, &TREE_VBO);
+
+    glBindVertexArray(TREE_VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, TREE_VBO);
+    glBufferData(GL_ARRAY_BUFFER, tree_vertices.size() * sizeof(float), &tree_vertices[0], GL_STATIC_DRAW);
+
+    // Tree element buffer
+    glGenBuffers(1, &TREE_EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, TREE_EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, tree_indices.size() * sizeof(unsigned int), &tree_indices[0], GL_STATIC_DRAW);
+
+    // Position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    // Normal attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+#pragma endregion TreeRendering
+
+#pragma region TerrainSetUp
+
     // First, configure the cube's VAO (and terrainVBO)
     unsigned int terrainVAO, terrainVBO;
     glGenVertexArrays(1, &terrainVAO);
+    glGenBuffers(1, &terrainVBO);
+
     glBindVertexArray(terrainVAO);
 
-    glGenBuffers(1, &terrainVBO);
     glBindBuffer(GL_ARRAY_BUFFER, terrainVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertices.size(), &vertices[0], GL_STATIC_DRAW);
 
@@ -417,6 +526,11 @@ int main()
 
     glPatchParameteri(GL_PATCH_VERTICES, NUM_PATCH_PTS);
 
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+#pragma endregion TerrainSetUp
+
 #pragma region RenderingLoop
 
     // render loop
@@ -426,9 +540,9 @@ int main()
         // per-frame time logic
         // --------------------
         float now = glfwGetTime();
-        double deltaTime = now - lastUpdateTime;
+        deltaTime = now - lastFrameTime;
 
-        if ((now - lastFrameTime) >= fpsLimit) {
+        if (deltaTime >= fpsLimit) {
             if (frameCounter >= 60) {
                 std::cout << "FPS: " << frameCounter / (now - lastFPSCheckTime) << std::endl;
                 frameCounter = 0;
@@ -439,7 +553,7 @@ int main()
             }
 
             // input
-        // -----
+            // -----
             processInput(mainGLWindow);
 
             // compute
@@ -496,7 +610,23 @@ int main()
 
             // Render the terrain
             glBindVertexArray(terrainVAO);
-            glDrawArrays(GL_PATCHES, 0, NUM_PATCH_PTS * resolutionFactor * resolutionFactor);
+            glPatchParameteri(GL_PATCH_VERTICES, NUM_PATCH_PTS); // Make sure to set number of vertices per patch
+            glDrawArrays(GL_PATCHES, 0, NUM_PATCH_PTS * resolutionFactor * resolutionFactor); // Count depends on your patch size
+            glBindVertexArray(0);
+
+            ////// RENDER THE TREES
+            treeShaderProgram.use();
+            glm::vec3 treePosition = glm::vec3(0.f, 0, -5);
+
+            // Set the model matrix for each tree (position, scale, rotation)
+            glm::mat4 treeModel = glm::translate(glm::mat4(1.0f), treePosition); // Position of the tree
+            treeModel = glm::scale(treeModel, glm::vec3(1.f)); // Scale of the tree (can be adjusted)
+            treeShaderProgram.setMat4("model", treeModel);
+
+            // Bind the tree VAO and draw it
+            glBindVertexArray(TREE_VAO);
+            glDrawElements(GL_TRIANGLES, tree_indices.size(), GL_UNSIGNED_INT, 0); // Use tree_indices for drawing
+            glBindVertexArray(0);
 
             // GLFW: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
             // -------------------------------------------------------------------------------
@@ -505,8 +635,6 @@ int main()
 
             lastFrameTime = now;
         }
-
-        lastUpdateTime = now;
     }
 
 #pragma endregion RenderingLoop
@@ -528,7 +656,7 @@ int main()
 void processInput(GLFWwindow* window)
 {
     // Change this speed to affect how fast you want the camera to zip around the terrain.
-    constexpr float CAMERA_SPEED = 100.f;
+    constexpr float CAMERA_SPEED = 1000.f;
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.ProcessKeyboard(FORWARD, deltaTime * CAMERA_SPEED);

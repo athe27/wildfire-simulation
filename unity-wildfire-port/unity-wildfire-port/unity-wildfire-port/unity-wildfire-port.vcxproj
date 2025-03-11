@@ -150,6 +150,8 @@
     <None Include="screenQuad.vs" />
     <None Include="gpuheight.tcs" />
     <None Include="gpuheight.tes" />
+    <None Include="tree_fragment.fs" />
+    <None Include="tree_vertex.vs" />
     <None Include="wildfireCompute.cs" />
   </ItemGroup>
   <ItemGroup>
