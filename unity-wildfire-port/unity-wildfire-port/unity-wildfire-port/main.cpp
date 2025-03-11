@@ -426,7 +426,7 @@ int main()
         // per-frame time logic
         // --------------------
         float now = glfwGetTime();
-        double deltaTime = now - lastUpdateTime;
+        deltaTime = now - lastFrameTime;
 
         if ((now - lastFrameTime) >= fpsLimit) {
             if (frameCounter >= 60) {
