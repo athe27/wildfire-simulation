@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include "Model.h"
 
 #include <vector>
 
@@ -80,66 +81,6 @@ const unsigned int UPDATES_BETWEEN_GRID_IMAGE_WRITES = 30;
 bool mouseDown = false;
 glm::vec2 mousePos = glm::vec2(0.0f, 0.0f);
 
-bool loadOBJ(const char* path, std::vector<float>& vertices, std::vector<unsigned int>& indices) {
-    auto file = std::ifstream(path);
-
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-
-    std::string err;
-    std::string warning;
-
-    bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &err, &file);
-
-    if (!err.empty()) {
-        std::cerr << "Error: " << err << std::endl;
-    }
-
-    if (!ret) {
-        std::cerr << "Failed to load .obj file" << std::endl;
-        return false;
-    }
-
-    // Ensure the size of vertices and normals match
-    size_t numVertices = attrib.vertices.size() / 3;
-    size_t numNormals = attrib.normals.size() / 3;
-
-    for (const auto& shape : shapes) {
-        for (const auto& index : shape.mesh.indices) {
-            // Check if the indices are valid
-            if (index.vertex_index >= numVertices) {
-                    std::cerr << "Invalid vertex index: " << index.vertex_index << std::endl;
-                    continue;
-            }
-
-            if (index.normal_index >= 0 && index.normal_index >= numNormals) {
-                std::cerr << "Invalid normal index: " << index.normal_index << std::endl;
-                continue;
-            }
-
-            // Vertex position
-            vertices.push_back(attrib.vertices[3 * index.vertex_index + 0]);
-            vertices.push_back(attrib.vertices[3 * index.vertex_index + 1]);
-            vertices.push_back(attrib.vertices[3 * index.vertex_index + 2]);
-
-            // Normal (optional, use if available)
-            if (index.normal_index >= 0) {
-                vertices.push_back(attrib.normals[3 * index.normal_index + 0]);
-                vertices.push_back(attrib.normals[3 * index.normal_index + 1]);
-                vertices.push_back(attrib.normals[3 * index.normal_index + 2]);
-            }
-
-            indices.push_back(index.vertex_index);
-        }
-    }
-
-    std::cout << "numVertices: " << numVertices << std::endl;
-    std::cout << "numNormals: " << numNormals << std::endl;
-
-    return true;
-}
-
 GLboolean generateWildfireTexture(GLsizei offset, GLuint* textures,
     GLsizei width, GLsizei height) {
     const char* heightmap_file_name = "HeightMaps/GreatLakeHeightmap.png";
@@ -168,7 +109,6 @@ GLboolean generateWildfireTexture(GLsizei offset, GLuint* textures,
             float heightValue = heightmap_image_data[img_y * width + img_x] / 255.0f;
 
             int data_index = (y * width + x) * 4;
-
             data[data_index + 2] = heightValue;
         }
     }
@@ -315,8 +255,9 @@ int main()
 
     // Build and compile our shader program using our vertex, fragment, tessellation control, and tessellation evaluatioin shaders.
     // ----------------------------------------------------------------------------------------------------------------------------
-    Shader heightMapShader("gpuheight.vs", "gpuheight.fs", nullptr, "gpuheight.tcs", "gpuheight.tes");
-    Shader treeShaderProgram("tree_vertex.vs", "tree_fragment.fs");
+    Shader heightMapShader("gpuheight.vs", "gpuheight.frag", nullptr, "gpuheight.tcs", "gpuheight.tes");
+    Shader treeModelShader("model_loading.vs", "model_loading.frag");
+    Model treeModel("Meshes/tree.obj");
 
 #pragma region LoadingHeightMapTexture
 
@@ -324,10 +265,10 @@ int main()
     // --------------------------------------
     GLuint heightMapTexture;
     glGenTextures(1, &heightMapTexture);
-    glActiveTexture(GL_TEXTURE0);
+    glActiveTexture(GL_TEXTURE6);
 
     // All upcoming GL_TEXTURE_2D operations now have effect on the heightMapTexture object.
-    glBindTexture(GL_TEXTURE_2D, heightMapTexture); 
+    glBindTexture(GL_TEXTURE_2D, heightMapTexture);
 
     // Set texture wrapping and filtering options
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -340,7 +281,7 @@ int main()
 
     // Load the heightmap image, create the texture, and generate mipmaps.
     int heightmapImageWidth, heightmapImageHeight, heightmapImageChannelCount;
-    
+
     // It is essential that we read the image with RGBA. Otherwise, we will face a crash when trying to generate a texture from it.
     // By default, the heightmap image only has 2 textures.
     unsigned char* heightMapData = stbi_load("HeightMaps/GreatLakeHeightmap.png", &heightmapImageWidth, &heightmapImageHeight, &heightmapImageChannelCount, STBI_rgb_alpha);
@@ -350,18 +291,17 @@ int main()
         std::cout << "Failed to load heightmap texture" << std::endl;
         return -1;
     }
-    
+
     // Generate the OpenGL texture from the heightmap image.
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, heightmapImageWidth, heightmapImageHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, heightMapData);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     // Set the heightmap shader (which is shader 0) as a parameter for the shader program.
-    heightMapShader.setInt("heightMap", 0);
+    heightMapShader.setInt("heightMap", 6);
 
     // Output the size of the heightmap.
     std::cout << "Loaded heightmap of size " << heightmapImageHeight << " x " << heightmapImageWidth << std::endl;
 
-    // Make sure to free the data when all is said and done.
     stbi_image_free(heightMapData);
 
 #pragma endregion LoadingHeightMapTexture
@@ -398,8 +338,6 @@ int main()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, landscapeImageWidth, landscapeImageHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, landscapeData);
     glGenerateMipmap(GL_TEXTURE_2D);
 
-    // TODO for Katherine: You can read the data for the landscape texture here to determine which pixels/grid locations need a tree.
-
     // Output the size of the heightmap.
     std::cout << "Loaded landscape texture of size " << landscapeImageHeight << " x " << landscapeImageWidth << std::endl;
 
@@ -409,7 +347,6 @@ int main()
 #pragma endregion LoadingLandscapeTexture
 
     // COMPUTE SHADER STUFF (Anthony)
-
     ComputeShader wildfireCompute("wildfireCompute.cs");
 
     const GLsizei numWildfireTextures = 2;
@@ -467,42 +404,6 @@ int main()
     std::cout << "Processing " << resolutionFactor * resolutionFactor * 4 << " vertices in vertex shader" << std::endl;
 
 #pragma endregion GenerateVertices
-
-#pragma region TreeRendering
-
-    std::vector<float> tree_vertices;
-    std::vector<unsigned int> tree_indices;
-    if (!loadOBJ("Meshes/tree.obj", tree_vertices, tree_indices)) {
-        std::cerr << "Failed to load tree.obj" << std::endl;
-        return -1;
-    }
-
-    unsigned int TREE_VAO, TREE_VBO, TREE_EBO;
-    glGenVertexArrays(1, &TREE_VAO);
-    glGenBuffers(1, &TREE_VBO);
-
-    glBindVertexArray(TREE_VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, TREE_VBO);
-    glBufferData(GL_ARRAY_BUFFER, tree_vertices.size() * sizeof(float), &tree_vertices[0], GL_STATIC_DRAW);
-
-    // Tree element buffer
-    glGenBuffers(1, &TREE_EBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, TREE_EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, tree_indices.size() * sizeof(unsigned int), &tree_indices[0], GL_STATIC_DRAW);
-
-    // Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    // Normal attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-#pragma endregion TreeRendering
 
 #pragma region TerrainSetUp
 
@@ -568,12 +469,6 @@ int main()
             wildfireCompute.setBool("mouseDown", mouseDown);
             if (mouseDown == true) {
                 mouseDown = false;
-                /*double xpos, ypos;
-                glfwGetCursorPos(mainGLWindow, &xpos, &ypos);
-                int width, height;
-                glfwGetWindowSize(mainGLWindow, &width, &height);
-                mousePos.x = xpos / width;
-                mousePos.y = 1.0 - ypos / height;*/
                 std::cout << mousePos.x << " " << mousePos.y << std::endl;
                 wildfireCompute.setVec2("mousePos", mousePos);
             }
@@ -590,42 +485,39 @@ int main()
             glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            // be sure to activate shader when setting uniforms/drawing objects
-            heightMapShader.use();
-
             // Calculate the current projection and camera view matrix.
             glm::mat4 cameraProjection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100000.0f);
             glm::mat4 cameraViewMatrix = camera.GetViewMatrix();
 
+            ////// RENDER THE TREES
+            treeModelShader.use();
+            treeModelShader.setMat4("projection", cameraProjection);
+            treeModelShader.setMat4("view", cameraViewMatrix);
+
+            // render the loaded model
+            glm::mat4 tree_model = glm::mat4(1.0f);
+            tree_model = glm::translate(tree_model, glm::vec3(0.0f, 0.0f, 50.f)); // translate it down so it's at the center of the scene
+            tree_model = glm::scale(tree_model, glm::vec3(50.0f, 50.0f, 50.0f));	// it's a bit too big for our scene, so scale it down
+            treeModelShader.setMat4("model", tree_model);
+            treeModel.Draw(treeModelShader);
+
+            // be sure to activate shader when setting uniforms/drawing objects
+            heightMapShader.use();
+            
             heightMapShader.setMat4("projection", cameraProjection);
             heightMapShader.setMat4("view", cameraViewMatrix);
+            heightMapShader.setInt("heightMap", 6);
+            heightMapShader.setInt("landscapeTexture", 1);
+            heightMapShader.setInt("wildfireTexture", 2);
 
             // World transformation
             glm::mat4 model = glm::mat4(1.0f);
             heightMapShader.setMat4("model", model);
 
-            // Set the landscape texture.
-            heightMapShader.setInt("landscapeTexture", 1);
-            heightMapShader.setInt("wildfireTexture", 2);
-
             // Render the terrain
             glBindVertexArray(terrainVAO);
             glPatchParameteri(GL_PATCH_VERTICES, NUM_PATCH_PTS); // Make sure to set number of vertices per patch
             glDrawArrays(GL_PATCHES, 0, NUM_PATCH_PTS * resolutionFactor * resolutionFactor); // Count depends on your patch size
-            glBindVertexArray(0);
-
-            ////// RENDER THE TREES
-            treeShaderProgram.use();
-            glm::vec3 treePosition = glm::vec3(0.f, 0, -5);
-
-            // Set the model matrix for each tree (position, scale, rotation)
-            glm::mat4 treeModel = glm::translate(glm::mat4(1.0f), treePosition); // Position of the tree
-            treeModel = glm::scale(treeModel, glm::vec3(1.f)); // Scale of the tree (can be adjusted)
-            treeShaderProgram.setMat4("model", treeModel);
-
-            // Bind the tree VAO and draw it
-            glBindVertexArray(TREE_VAO);
-            glDrawElements(GL_TRIANGLES, tree_indices.size(), GL_UNSIGNED_INT, 0); // Use tree_indices for drawing
             glBindVertexArray(0);
 
             // GLFW: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -638,12 +530,6 @@ int main()
     }
 
 #pragma endregion RenderingLoop
-
-    // De-allocate all resources once they've outlived their purpose:
-    // ------------------------------------------------------------------------
-    glDeleteTextures(numWildfireTextures, wildfireTextures);
-    glDeleteVertexArrays(1, &terrainVAO);
-    glDeleteBuffers(1, &terrainVBO);
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
