@@ -178,7 +178,6 @@ bool CheckNeighborOnFire(vec2 coord)
                 }
             }
             break;
-
         case 1: // South - check north, northeast, northwest, east, west
             for (int i = -1; i <= 1; i++)
             {
@@ -259,7 +258,6 @@ bool CheckNeighborOnFire(vec2 coord)
                 neighborOnFire = true;
             }
             break;
-
         case 6: // Southeast - check northwest, north, west
             if (GetState(GetCellData(coord + vec2(1, -1))) == STATE_ON_FIRE ||
                 GetState(GetCellData(coord + vec2(0, -1))) == STATE_ON_FIRE ||
@@ -268,7 +266,6 @@ bool CheckNeighborOnFire(vec2 coord)
                 neighborOnFire = true;
             }
             break;
-
         case 7: // Northwest - check southeast, south, east
             if (GetState(GetCellData(coord + vec2(-1, 1))) == STATE_ON_FIRE ||
                 GetState(GetCellData(coord + vec2(0, 1))) == STATE_ON_FIRE ||
@@ -310,6 +307,69 @@ bool IsImpactedByMouse(vec2 coord, inout vec4 cellData)
     return false;
 }
 
+float GetWindSpreadProb(vec2 coord)
+{
+    float prob = 0.0;
+
+    vec2 windDirection = vec2(0, 0);
+
+    if (windDirectionIndex == 1)
+    {
+        // east
+        windDirection = vec2(1, 0);
+    } else if (windDirectionIndex == 2)
+    {
+        // west
+        windDirection = vec2(-1, 0);
+    } else if (windDirectionIndex == 3)
+    {
+        // north
+        windDirection = vec2(0, 1);
+    } else if (windDirectionIndex == 4)
+    {
+        // south
+        windDirection = vec2(0, -1);
+    } else if (windDirectionIndex == 5)
+    {
+        // northeast
+        windDirection = vec2(1, 1);
+    } else if (windDirectionIndex == 6)
+    {
+        // northwest
+        windDirection = vec2(-1, 1);
+    } else if (windDirectionIndex == 7)
+    {
+        // southeast
+        windDirection = vec2(1, -1);
+    } else if (windDirectionIndex == 8)
+    {
+        windDirection = vec2(-1, -1);
+    }
+
+    for (int i = -1; i <= 1; i++)
+    {
+        for (int j = -1; j <= 1; j++)
+        {
+            if (i == 0 && j == 0) continue;
+
+            vec2 neighborOffset = vec2(i, j);
+            vec4 otherCellData = GetCellData(coord + vec2(i, j));
+            int otherCellState = GetState(otherCellData);
+
+            if (otherCellState == STATE_ON_FIRE)
+            {
+                // Compute the dot product to check alignment with the wind
+                float windInfluence = max(0.0, dot(normalize(-neighborOffset), windDirection));
+
+                // Increase probability based on wind influence
+                prob += (0.1 + 0.9 * windInfluence) / 8;
+            }
+        }
+    }
+
+    return prob;
+}
+
 // Process a single cell
 void processCell(vec2 coord, inout vec4 cellData)
 {
@@ -330,11 +390,13 @@ void processCell(vec2 coord, inout vec4 cellData)
             }
         }
 
-        bool neighborOnFire = CheckNeighborOnFire(coord);
+        float windSpreadThreshold = GetWindSpreadProb(coord);
+
+        float windSpreadProb = random(coord + vec2(1, 1));
 
         float fireCatchProb = random(coord);
 
-        if (neighborOnFire || FIRE_PROB > fireCatchProb || IsImpactedByMouse(coord, cellData))
+        if (windSpreadThreshold > windSpreadProb || FIRE_PROB > fireCatchProb || IsImpactedByMouse(coord, cellData))
         {
             float flammableProb = 0.0f;
             if (cellMaterial == MATERIAL_GRASS)
