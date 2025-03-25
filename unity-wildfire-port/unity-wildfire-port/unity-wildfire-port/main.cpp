@@ -257,7 +257,17 @@ int main()
     // ----------------------------------------------------------------------------------------------------------------------------
     Shader heightMapShader("gpuheight.vs", "gpuheight.frag", nullptr, "gpuheight.tcs", "gpuheight.tes");
     Shader treeModelShader("model_loading.vs", "model_loading.frag");
+
     Model treeModel("Meshes/tree.obj");
+
+    std::vector<Model> all_created_tree_models;
+    constexpr int NUMBER_OF_ROWS = 30;
+    constexpr int NUMBER_OF_COLS = 30;
+    constexpr int NUMBER_OF_TREES = NUMBER_OF_ROWS * NUMBER_OF_COLS;
+    for (int index_tree = 0; index_tree < NUMBER_OF_TREES; index_tree++) {
+        Model newModel("Meshes/tree.obj");
+        all_created_tree_models.push_back(newModel);
+    }
 
 #pragma region LoadingHeightMapTexture
 
@@ -443,7 +453,8 @@ int main()
         float now = glfwGetTime();
         deltaTime = now - lastFrameTime;
 
-        if (deltaTime >= fpsLimit) {
+        //if (deltaTime >= fpsLimit) {
+        {
             if (frameCounter >= 60) {
                 std::cout << "FPS: " << frameCounter / (now - lastFPSCheckTime) << std::endl;
                 frameCounter = 0;
@@ -494,12 +505,16 @@ int main()
             treeModelShader.setMat4("projection", cameraProjection);
             treeModelShader.setMat4("view", cameraViewMatrix);
 
-            // render the loaded model
-            glm::mat4 tree_model = glm::mat4(1.0f);
-            tree_model = glm::translate(tree_model, glm::vec3(0.0f, 0.0f, 50.f)); // translate it down so it's at the center of the scene
-            tree_model = glm::scale(tree_model, glm::vec3(50.0f, 50.0f, 50.0f));	// it's a bit too big for our scene, so scale it down
-            treeModelShader.setMat4("model", tree_model);
-            treeModel.Draw(treeModelShader);
+            for (int x = 0; x < NUMBER_OF_COLS; x++) {
+                for (int y = 0; y < NUMBER_OF_ROWS; y++) {
+                    // render the loaded model
+                    glm::mat4 tree_model = glm::mat4(1.0f);
+                    tree_model = glm::translate(tree_model, glm::vec3(x * 50.f, y * 50.f, 50.f * ((x * NUMBER_OF_ROWS) + y))); // translate it down so it's at the center of the scene
+                    tree_model = glm::scale(tree_model, glm::vec3(10.0f, 10.0f, 10.0f));	// it's a bit too big for our scene, so scale it down
+                    treeModelShader.setMat4("model", tree_model);
+                    treeModel.Draw(treeModelShader);
+                }
+            }
 
             // be sure to activate shader when setting uniforms/drawing objects
             heightMapShader.use();
