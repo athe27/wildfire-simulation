@@ -326,12 +326,22 @@ void WildFireSimulation::UpdateWildFireSimulation(float dt)
 						flammableProb = FLAMMABLE_PROBABILITY_FOR_BEDROCK;
 						break;
 					}
+					// Rain probability
+					float rainAmount = (static_cast<float>(rand()) / RAND_MAX) * 100;
+
 
 					// Generate random probability between 0 and 1
 					float randomProb = static_cast<float>(rand()) / RAND_MAX;
 					if (isHot) {
 						randomProb *= 2;
 					}
+					if (rainAmount < 24) {
+						randomProb *= 0.018
+					}
+					else if (rainAmount > 96) {
+						randomProb *= 0.061
+					}
+					 
 					if (flammableProb > randomProb) {
 						newGrid[index_X][index_Y].CurrentState = EGridCellState::ON_FIRE;
 					}
