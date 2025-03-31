@@ -207,7 +207,6 @@ private:
     }
 };
 
-
 unsigned int TextureFromFile(const char* path, const string& directory, bool gamma)
 {
     string filename = string(path);
@@ -221,17 +220,32 @@ unsigned int TextureFromFile(const char* path, const string& directory, bool gam
     if (data)
     {
         GLenum format;
+        GLenum internalFormat;
         if (nrComponents == 1)
+        {
             format = GL_RED;
+            internalFormat = GL_RED;
+        }
         else if (nrComponents == 3)
+        {
             format = GL_RGB;
+            internalFormat = GL_RGB;
+        }
         else if (nrComponents == 4)
+        {
             format = GL_RGBA;
+            internalFormat = GL_RGBA;
+        }
 
         glBindTexture(GL_TEXTURE_2D, textureID);
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
 
+        // Enable blending for transparency
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        // Texture parameters
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);

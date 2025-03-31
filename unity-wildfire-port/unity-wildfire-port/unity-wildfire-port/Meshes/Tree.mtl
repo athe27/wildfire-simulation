@@ -1,14 +1,22 @@
-newmtl Trank_bark
-Ka 1.000000 1.000000 1.000000
-Kd 1.000000 1.000000 1.000000
-Ks 0.000000 0.000000 0.000000
-Ns 16
-map_Kd bark_0004.jpg
+# Blender 3.6.2 MTL File: 'None'
+# www.blender.org
 
-newmtl DB2X2_L01
+newmtl Leav_material
+Ns 1.788855
 Ka 1.000000 1.000000 1.000000
-Kd 1.000000 1.000000 1.000000
-Ks 0.000000 0.000000 0.000000
-Ns 16
-map_Kd DB2X2_L01.png
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd Leav_material_baseColor.png
+map_d Leav_material_baseColor.png
 
+newmtl tree_material
+Ns 1.788855
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd tree_material_baseColor.jpeg

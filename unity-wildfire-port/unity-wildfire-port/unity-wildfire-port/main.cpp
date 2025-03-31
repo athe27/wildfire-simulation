@@ -65,6 +65,10 @@ const unsigned int NUM_PATCH_PTS = 4;
 const unsigned int WILDFIRE_WIDTH = 2048;
 const unsigned int WILDFIRE_HEIGHT = 2048;
 
+constexpr int NUMBER_OF_ROWS = 100;
+constexpr int NUMBER_OF_COLS = 100;
+constexpr int NUMBER_OF_TREES = NUMBER_OF_ROWS * NUMBER_OF_COLS;
+
 // camera - give pretty starting point
 Camera camera(glm::vec3(67.0f, 627.5f, 169.9f), glm::vec3(0.0f, 1.0f, 0.0f), -128.1f, -42.4f);
 float lastX = SCR_WIDTH / 2.0f;
@@ -250,6 +254,8 @@ int main()
     // Configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 #pragma endregion Initialize
 
@@ -260,13 +266,20 @@ int main()
 
     Model treeModel("Meshes/tree.obj");
 
-    std::vector<Model> all_created_tree_models;
-    constexpr int NUMBER_OF_ROWS = 30;
-    constexpr int NUMBER_OF_COLS = 30;
-    constexpr int NUMBER_OF_TREES = NUMBER_OF_ROWS * NUMBER_OF_COLS;
-    for (int index_tree = 0; index_tree < NUMBER_OF_TREES; index_tree++) {
-        Model newModel("Meshes/tree.obj");
-        all_created_tree_models.push_back(newModel);
+    glm::mat4* treeModelMatrices;
+    treeModelMatrices = new glm::mat4[NUMBER_OF_COLS * NUMBER_OF_ROWS];
+
+    for (int x = -(NUMBER_OF_COLS / 2); x < (NUMBER_OF_COLS / 2); x++) {
+        for (int y = -(NUMBER_OF_ROWS / 2); y < (NUMBER_OF_ROWS / 2); y++) {
+            const int tree_index = ((x + (NUMBER_OF_COLS / 2)) * NUMBER_OF_COLS) + (y + (NUMBER_OF_ROWS / 2));
+
+            // render the loaded model
+            glm::mat4 tree_model = glm::mat4(1.0f);
+            tree_model = glm::translate(tree_model, glm::vec3(x * 40.f, 75.f, y * 40.f)); // translate it down so it's at the center of the scene
+            tree_model = glm::scale(tree_model, glm::vec3(0.02f));
+
+            treeModelMatrices[tree_index] = tree_model;
+        }
     }
 
 #pragma region LoadingHeightMapTexture
@@ -444,6 +457,35 @@ int main()
 
 #pragma region RenderingLoop
 
+    // vertex buffer object
+    unsigned int buffer;
+    glGenBuffers(1, &buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer);
+    glBufferData(GL_ARRAY_BUFFER, NUMBER_OF_TREES * sizeof(glm::mat4), &treeModelMatrices[0], GL_STATIC_DRAW);
+
+    for (unsigned int i = 0; i < treeModel.meshes.size(); i++)
+    {
+        unsigned int VAO = treeModel.meshes[i].VAO;
+        glBindVertexArray(VAO);
+        // vertex attributes
+        std::size_t vec4Size = sizeof(glm::vec4);
+        glEnableVertexAttribArray(3);
+        glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void*)0);
+        glEnableVertexAttribArray(4);
+        glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void*)(1 * vec4Size));
+        glEnableVertexAttribArray(5);
+        glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void*)(2 * vec4Size));
+        glEnableVertexAttribArray(6);
+        glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void*)(3 * vec4Size));
+
+        glVertexAttribDivisor(3, 1);
+        glVertexAttribDivisor(4, 1);
+        glVertexAttribDivisor(5, 1);
+        glVertexAttribDivisor(6, 1);
+
+        glBindVertexArray(0);
+    }
+
     // render loop
     // -----------
     while (!glfwWindowShouldClose(mainGLWindow))
@@ -500,22 +542,6 @@ int main()
             glm::mat4 cameraProjection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100000.0f);
             glm::mat4 cameraViewMatrix = camera.GetViewMatrix();
 
-            ////// RENDER THE TREES
-            treeModelShader.use();
-            treeModelShader.setMat4("projection", cameraProjection);
-            treeModelShader.setMat4("view", cameraViewMatrix);
-
-            for (int x = 0; x < NUMBER_OF_COLS; x++) {
-                for (int y = 0; y < NUMBER_OF_ROWS; y++) {
-                    // render the loaded model
-                    glm::mat4 tree_model = glm::mat4(1.0f);
-                    tree_model = glm::translate(tree_model, glm::vec3(x * 50.f, y * 50.f, 50.f * ((x * NUMBER_OF_ROWS) + y))); // translate it down so it's at the center of the scene
-                    tree_model = glm::scale(tree_model, glm::vec3(10.0f, 10.0f, 10.0f));	// it's a bit too big for our scene, so scale it down
-                    treeModelShader.setMat4("model", tree_model);
-                    treeModel.Draw(treeModelShader);
-                }
-            }
-
             // be sure to activate shader when setting uniforms/drawing objects
             heightMapShader.use();
             
@@ -534,6 +560,48 @@ int main()
             glPatchParameteri(GL_PATCH_VERTICES, NUM_PATCH_PTS); // Make sure to set number of vertices per patch
             glDrawArrays(GL_PATCHES, 0, NUM_PATCH_PTS * resolutionFactor * resolutionFactor); // Count depends on your patch size
             glBindVertexArray(0);
+
+
+            ////// RENDER THE TREES
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+#pragma region DefaultRendering
+
+            ////// RENDER THE TREES
+            //treeModelShader.use();
+            //treeModelShader.setMat4("projection", cameraProjection);
+            //treeModelShader.setMat4("view", cameraViewMatrix);
+
+            //for (int x = 0; x < NUMBER_OF_COLS; x++) {
+            //    for (int y = 0; y < NUMBER_OF_ROWS; y++) {
+            //        // render the loaded model
+            //        glm::mat4 tree_model = glm::mat4(1.0f);
+            //        tree_model = glm::translate(tree_model, glm::vec3(x * 40.f, 75.f, y * 40.f)); // translate it down so it's at the center of the scene
+            //        tree_model = glm::scale(tree_model, glm::vec3(0.02f));
+
+            //        treeModelShader.setMat4("model", tree_model);
+
+            //        treeModel.Draw(treeModelShader);
+            //    }
+            //}
+
+#pragma endregion
+
+#pragma region InstanceRendering
+
+            treeModelShader.use();
+            treeModelShader.setMat4("projection", cameraProjection);
+            treeModelShader.setMat4("view", cameraViewMatrix);
+
+            // Go through all the meshes in the tree model, and draw the elements as instanced.
+            for (unsigned int Index_TreeMesh = 0; Index_TreeMesh < treeModel.meshes.size(); Index_TreeMesh++)
+            {
+                glBindVertexArray(treeModel.meshes[Index_TreeMesh].VAO);
+                glDrawElementsInstanced(GL_TRIANGLES, treeModel.meshes[Index_TreeMesh].indices.size(), GL_UNSIGNED_INT, 0, NUMBER_OF_TREES);
+            }
+
+#pragma endregion InstanceRendering
 
             // GLFW: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
             // -------------------------------------------------------------------------------
