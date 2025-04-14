@@ -43,7 +43,9 @@
 #define MATERIAL_GRASS 0.0f
 #define MATERIAL_WATER 1.0f
 #define MATERIAL_BEDROCK 2.0f
-#define MATERIAL_TREE 3.0f
+#define MATERIAL_TREE_1 3.0f
+#define MATERIAL_TREE_2 4.0f
+#define MATERIAL_TREE_3 5.0f
 
 #define STATE_NOT_ON_FIRE 0.0f
 #define STATE_ON_FIRE 1.0f
@@ -86,7 +88,7 @@ glm::vec2 mousePos = glm::vec2(0.0f, 0.0f);
 GLboolean generateWildfireTexture(GLsizei offset, GLuint* textures,
     GLsizei width, GLsizei height) {
     const char* heightmap_file_name = "HeightMaps/GreatLakeHeightmap.png";
-    const char* landscape_file_name = "Landscapes/forested_landscape.png";
+    const char* landscape_file_name = "Landscapes/species_forest_landscape.png";
 
     // setup wildfire initial data
     const size_t pixelCount = width * height;
@@ -111,6 +113,7 @@ GLboolean generateWildfireTexture(GLsizei offset, GLuint* textures,
             float heightValue = heightmap_image_data[img_y * width + img_x] / 255.0f;
 
             int data_index = (y * width + x) * 4;
+
             data[data_index + 2] = heightValue;
         }
     }
@@ -149,8 +152,14 @@ GLboolean generateWildfireTexture(GLsizei offset, GLuint* textures,
             else if (r == 121 && g == 150 && b == 114) {
                 data[data_index + 0] = MATERIAL_GRASS;
             }
-            else if (r == 34 && g == 87 && b == 22) {
-                data[data_index + 0] = MATERIAL_TREE;
+            else if (r == 32 && g == 99 && b == 84) {
+                data[data_index + 0] = MATERIAL_TREE_1;
+            }
+            else if (r == 66 && g == 143 && b == 30) {
+                data[data_index + 0] = MATERIAL_TREE_2;
+            }
+            else if (r == 185 && g == 209 && b == 50) {
+                data[data_index + 0] = MATERIAL_TREE_3;
             }
 
             data[data_index + 1] = STATE_NOT_ON_FIRE;
@@ -445,7 +454,7 @@ int main()
     /// Load Landscape Image from File Name
     /////////////////////////////////////////////////////
 
-    const char* landscape_file_name = "Landscapes/forested_landscape.png";
+    const char* landscape_file_name = "Landscapes/species_forest_landscape.png";
     int landscape_img_width, landscape_img_height, landscape_channels;
     unsigned char* landscape_image_data = stbi_load(landscape_file_name, &landscape_img_width, &landscape_img_height, &landscape_channels, STBI_rgb);
 
@@ -481,7 +490,11 @@ int main()
             int g = (int)landscape_image_data[index + 1];
             int b = (int)landscape_image_data[index + 2];
 
-            if (r == 34 && g == 87 && b == 22) {
+            const bool bIsTree1 = r == 32 && g == 99 && b == 84;
+            const bool bIsTree2 = r == 66 && g == 143 && b == 30;
+            const bool bIsTree3 = r == 185 && g == 209 && b == 50;
+
+            if (bIsTree1 || bIsTree2 || bIsTree3) {
                 ++totalNumberOfTrees;
             }
         }
@@ -543,7 +556,11 @@ int main()
                 int g = (int)landscape_image_data[index + 1];
                 int b = (int)landscape_image_data[index + 2];
 
-                if (r == 34 && g == 87 && b == 22) {
+                const bool bIsTree1 = r == 32 && g == 99 && b == 84;
+                const bool bIsTree2 = r == 66 && g == 143 && b == 30;
+                const bool bIsTree3 = r == 185 && g == 209 && b == 50;
+
+                if (bIsTree1 || bIsTree2 || bIsTree3) {
                     ++numberOfTreesInGrid;
                 }
             }
@@ -575,7 +592,10 @@ int main()
 
     stbi_image_free(landscape_image_data);
 
-    std::cout << "Initial Tree Model Count is " << totalTreeMeshCount << std::endl;
+    std::cout << "\nTREE RENDERING DETAILS ------------" << std::endl;
+    std::cout << "Total Tree Pixel Count: " << totalNumberOfTrees << std::endl;
+    std::cout << "Max Possible Tree Instance Count: " << NUMBER_OF_TREES << std::endl;
+    std::cout << "Actual Tree Instance Count: " << totalTreeMeshCount << std::endl << std::endl;
 
     // vertex buffer object
     unsigned int TREE_VBO;

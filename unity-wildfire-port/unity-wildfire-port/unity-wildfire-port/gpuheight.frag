@@ -40,9 +40,17 @@ void main()
 		FragColor = vec4(vec3(min(255., 207. + heightValue), min(255., 198. + heightValue), min(255., 180. + heightValue)) / 255., 1.0);
 	}
 	else if (textureData.r == 3.0f) {
-		// Tree
-		FragColor = vec4(vec3(min(255., 34. + heightValue), min(255., 87. + heightValue), min(255., 22. + heightValue)) / 255., 1.0);
+		// Tree 1
+		FragColor = vec4(vec3(min(255., 32. + heightValue), min(255., 99. + heightValue), min(255., 84. + heightValue)) / 255., 1.0);
 	} 
+	else if (textureData.r == 4.0f) {
+		// Tree 2	
+		FragColor= vec4(vec3(min(255., 66. + heightValue), min(255., 143. + heightValue), min(255., 30. + heightValue)) / 255., 1.0);
+	}
+	else if (textureData.r == 5.0f) {
+		// Tree 3
+		FragColor = vec4(vec3(min(255., 185. + heightValue), min(255., 209. + heightValue), min(255., 50. + heightValue)) / 255., 1.0);
+	}
 	else {
 		FragColor = vec4(0., 0., 1.0, 1.0);
 	}
