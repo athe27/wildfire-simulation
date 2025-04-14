@@ -65,9 +65,7 @@ const unsigned int NUM_PATCH_PTS = 4;
 const unsigned int WILDFIRE_WIDTH = 2048;
 const unsigned int WILDFIRE_HEIGHT = 2048;
 
-constexpr int NUMBER_OF_ROWS = 100;
-constexpr int NUMBER_OF_COLS = 100;
-constexpr int NUMBER_OF_TREES = NUMBER_OF_ROWS * NUMBER_OF_COLS;
+int NUMBER_OF_TREES = 512 * 512;
 
 // camera - give pretty starting point
 Camera camera(glm::vec3(67.0f, 627.5f, 169.9f), glm::vec3(0.0f, 1.0f, 0.0f), -128.1f, -42.4f);
@@ -266,22 +264,6 @@ int main()
 
     Model treeModel("Meshes/tree.obj");
 
-    glm::mat4* treeModelMatrices;
-    treeModelMatrices = new glm::mat4[NUMBER_OF_COLS * NUMBER_OF_ROWS];
-
-    for (int x = -(NUMBER_OF_COLS / 2); x < (NUMBER_OF_COLS / 2); x++) {
-        for (int y = -(NUMBER_OF_ROWS / 2); y < (NUMBER_OF_ROWS / 2); y++) {
-            const int tree_index = ((x + (NUMBER_OF_COLS / 2)) * NUMBER_OF_COLS) + (y + (NUMBER_OF_ROWS / 2));
-
-            // render the loaded model
-            glm::mat4 tree_model = glm::mat4(1.0f);
-            tree_model = glm::translate(tree_model, glm::vec3(x * 40.f, 75.f, y * 40.f)); // translate it down so it's at the center of the scene
-            tree_model = glm::scale(tree_model, glm::vec3(0.02f));
-
-            treeModelMatrices[tree_index] = tree_model;
-        }
-    }
-
 #pragma region LoadingHeightMapTexture
 
     // Load and create the heightmap texture.
@@ -455,12 +437,150 @@ int main()
 
 #pragma endregion TerrainSetUp
 
-#pragma region RenderingLoop
+#pragma region FoliageSetUp
+
+    const size_t pixelCount = WILDFIRE_WIDTH * WILDFIRE_HEIGHT;
+
+    /////////////////////////////////////////////////////
+    /// Load Landscape Image from File Name
+    /////////////////////////////////////////////////////
+
+    const char* landscape_file_name = "Landscapes/forested_landscape.png";
+    int landscape_img_width, landscape_img_height, landscape_channels;
+    unsigned char* landscape_image_data = stbi_load(landscape_file_name, &landscape_img_width, &landscape_img_height, &landscape_channels, STBI_rgb);
+
+    if (!landscape_image_data) {
+        std::cerr << "Failed to load landscape image: " << landscape_file_name << std::endl;
+        return false;
+    }
+
+    /////////////////////////////////////////////////////
+    /// Load Heightmap Image from File Name
+    /////////////////////////////////////////////////////
+
+    const char* heightmap_file_name = "HeightMaps/GreatLakeHeightmap.png";
+    int heightmap_img_width, heightmap_img_height, heightmap_channels;
+    unsigned char* heightmap_image_data = stbi_load(heightmap_file_name, &heightmap_img_width, &heightmap_img_height, &heightmap_channels, STBI_grey);
+
+    if (!heightmap_image_data) {
+        std::cerr << "Failed to load heightmap image: " << heightmap_file_name << std::endl;
+        return false;
+    }
+
+    /////////////////////////////////////////////////////
+    /// Count Total Number of Trees in Image
+    /////////////////////////////////////////////////////
+
+    int totalNumberOfTrees = 0;
+
+    for (int y = 0; y < WILDFIRE_HEIGHT; y++) {
+        for (int x = 0; x < WILDFIRE_HEIGHT; x++) {
+            int index = (y * WILDFIRE_WIDTH + x) * landscape_channels;
+
+            int r = (int)landscape_image_data[index];
+            int g = (int)landscape_image_data[index + 1];
+            int b = (int)landscape_image_data[index + 2];
+
+            if (r == 34 && g == 87 && b == 22) {
+                ++totalNumberOfTrees;
+            }
+        }
+    }
+
+    /////////////////////////////////////////////////////
+    /// Generate Grids from Landscape Texture
+    /////////////////////////////////////////////////////
+
+    constexpr int GRID_DIMENSION_X = 4;
+    constexpr int GRID_DIMENSION_Y = 4;
+    constexpr int NUMBER_OF_CELLS_IN_GRID = GRID_DIMENSION_X * GRID_DIMENSION_Y;
+    constexpr int NUMBER_OF_TREES_IN_GRID_THRESHOLD = 9;
+
+    int tree_model_index = 0;
+
+    // Offsets for the 2x2 block
+    const int all_grid_pixel_offsets[NUMBER_OF_CELLS_IN_GRID][2] = {
+        {0, 0}, {1, 0}, {2, 0}, {3, 0},
+        {0, 1}, {1, 1}, {2, 1}, {3, 1},
+        {0, 2}, {1, 2}, {2, 2}, {3, 2},
+        {0, 3}, {1, 3}, {2, 3}, {3, 3},
+    };
+
+    const int NUMBER_OF_GRIDS_X = WILDFIRE_HEIGHT / NUMBER_OF_CELLS_IN_GRID;
+    const int NUMBER_OF_GRIDS_Y = WILDFIRE_WIDTH / NUMBER_OF_CELLS_IN_GRID;
+
+    /////////////////////////////////////////////////////
+    /// Initialize Tree Model Matrices
+    /////////////////////////////////////////////////////
+
+    // Determine the maximum number of trees possible based from the maximum number of grids in each direction.
+    NUMBER_OF_TREES = NUMBER_OF_GRIDS_X * NUMBER_OF_GRIDS_Y;
+
+    glm::mat4* treeModelMatrices = new glm::mat4[NUMBER_OF_TREES];
+    for (int index_tree = 0; index_tree < NUMBER_OF_TREES; index_tree++) {
+        glm::mat4 tree_model = glm::mat4(1.0f);
+        tree_model = glm::scale(tree_model, glm::vec3(0.f));
+        treeModelMatrices[index_tree] = tree_model;
+    }
+
+    int totalTreeMeshCount = 0;
+
+    for (int y = 0; y < NUMBER_OF_GRIDS_Y; y++) {
+        for (int x = 0; x < NUMBER_OF_GRIDS_X; x++) {
+
+            int numberOfTreesInGrid = 0;
+            const int PIXEL_X = x * NUMBER_OF_CELLS_IN_GRID;
+            const int PIXEL_Y = y * NUMBER_OF_CELLS_IN_GRID;
+
+            // Go through all pixels in the grid, and determine the number of trees in the grid.
+            for (int index_pixel_grid = 0; index_pixel_grid < NUMBER_OF_CELLS_IN_GRID; ++index_pixel_grid) {
+                int dx = PIXEL_X + all_grid_pixel_offsets[index_pixel_grid][0];
+                int dy = PIXEL_Y + all_grid_pixel_offsets[index_pixel_grid][1];
+
+                int index = (dy * WILDFIRE_WIDTH + dx) * landscape_channels;
+
+                int r = (int)landscape_image_data[index];
+                int g = (int)landscape_image_data[index + 1];
+                int b = (int)landscape_image_data[index + 2];
+
+                if (r == 34 && g == 87 && b == 22) {
+                    ++numberOfTreesInGrid;
+                }
+            }
+
+            // Only place a tree if at least 9 of the 16 pixels are green
+            if (numberOfTreesInGrid >= NUMBER_OF_TREES_IN_GRID_THRESHOLD) {
+                treeModelMatrices[tree_model_index] = glm::mat4(1.0f);
+
+                constexpr float HEIGHT_SCALE = 768.f;
+                constexpr float HEIGHT_DISPLACEMENT = 0.f;
+
+                float heightValue = (heightmap_image_data[PIXEL_Y * heightmap_img_width + PIXEL_X] / 255.0f) * HEIGHT_SCALE;
+                heightValue += HEIGHT_DISPLACEMENT;
+
+                // Set the location.
+                glm::vec3 newLocation = glm::vec3(PIXEL_X - (WILDFIRE_WIDTH / 2.f), heightValue, PIXEL_Y - (WILDFIRE_WIDTH / 2.f));
+
+                treeModelMatrices[tree_model_index] = glm::translate(treeModelMatrices[tree_model_index], newLocation);
+
+                // Set the scale.
+                constexpr float MESH_SCALE = 0.01f;
+                treeModelMatrices[tree_model_index] = glm::scale(treeModelMatrices[tree_model_index], glm::vec3(MESH_SCALE));
+
+                tree_model_index++;
+                totalTreeMeshCount++;
+            }
+        }
+    }
+
+    stbi_image_free(landscape_image_data);
+
+    std::cout << "Initial Tree Model Count is " << totalTreeMeshCount << std::endl;
 
     // vertex buffer object
-    unsigned int buffer;
-    glGenBuffers(1, &buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, buffer);
+    unsigned int TREE_VBO;
+    glGenBuffers(1, &TREE_VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, TREE_VBO);
     glBufferData(GL_ARRAY_BUFFER, NUMBER_OF_TREES * sizeof(glm::mat4), &treeModelMatrices[0], GL_STATIC_DRAW);
 
     for (unsigned int i = 0; i < treeModel.meshes.size(); i++)
@@ -485,6 +605,10 @@ int main()
 
         glBindVertexArray(0);
     }
+
+#pragma endregion FoliageSetUp
+
+#pragma region RenderingLoop
 
     // render loop
     // -----------
@@ -561,7 +685,6 @@ int main()
             glDrawArrays(GL_PATCHES, 0, NUM_PATCH_PTS * resolutionFactor * resolutionFactor); // Count depends on your patch size
             glBindVertexArray(0);
 
-
             ////// RENDER THE TREES
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -573,8 +696,8 @@ int main()
             //treeModelShader.setMat4("projection", cameraProjection);
             //treeModelShader.setMat4("view", cameraViewMatrix);
 
-            //for (int x = 0; x < NUMBER_OF_COLS; x++) {
-            //    for (int y = 0; y < NUMBER_OF_ROWS; y++) {
+            //for (int x = 0; x < 512; x++) {
+            //    for (int y = 0; y < 512; y++) {
             //        // render the loaded model
             //        glm::mat4 tree_model = glm::mat4(1.0f);
             //        tree_model = glm::translate(tree_model, glm::vec3(x * 40.f, 75.f, y * 40.f)); // translate it down so it's at the center of the scene
