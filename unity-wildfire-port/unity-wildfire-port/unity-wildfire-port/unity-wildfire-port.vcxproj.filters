@@ -54,5 +54,32 @@
       <Filter>Source Files</Filter>
     </None>
     <None Include="wildfireCompute.cs" />
+    <None Include="gpuheight.tcs">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="gpuheight.tes">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="gpuheight.vs">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="gpuheight.frag">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="model_loading.vs" />
+    <None Include="model_loading.frag" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="HeightMaps\GreatLakeHeightmap.png">
+      <Filter>Source Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Mesh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Model.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

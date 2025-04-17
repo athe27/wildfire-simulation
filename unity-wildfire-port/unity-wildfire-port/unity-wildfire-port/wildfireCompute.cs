@@ -10,7 +10,9 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 #define MATERIAL_GRASS 0
 #define MATERIAL_WATER 1
 #define MATERIAL_BEDROCK 2
-#define MATERIAL_TREE 3
+#define MATERIAL_TREE_1 3
+#define MATERIAL_TREE_2 4
+#define MATERIAL_TREE_3 5
 
 // ----------------------------------------------------------------------------
 //
@@ -26,19 +28,27 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 // Uniforms
 //
 // ----------------------------------------------------------------------------
-layout(rgba32f, binding = 0) uniform image2D materialStateHeightTexture_READ;
-layout(rgba32f, binding = 1) uniform image2D materialStateHeightTexture_WRITE;
+layout(rgba32f, binding = 2) uniform image2D materialStateHeightTexture_READ;
+layout(rgba32f, binding = 3) uniform image2D materialStateHeightTexture_WRITE;
 
 layout(location = 0) uniform float iTime;
+uniform int frameCounter = 0;
+uniform bool mouseDown;
+uniform vec2 mousePos;
 
-uniform float FIRE_PROB = 0.01f;
-uniform float FLAMMABLE_PROBABILITY_FOR_GRASS = 0.0f;
+uniform int windDirectionIndex = 6;
+
+uniform float FIRE_PROB = 0.0f;
+uniform float FLAMMABLE_PROBABILITY_FOR_GRASS = 0.01f;
 uniform float FLAMMABLE_PROBABILITY_FOR_WATER = 0.0f;
 uniform float FLAMMABLE_PROBABILITY_FOR_BEDROCK = 0.1f;
 uniform float FLAMMABLE_PROBABILITY_FOR_TREE = 0.75f;
 
-uniform float GRASS_REGROW_PROBABILITY = 0.1f;
-uniform float TREE_REGROW_PROBABILITY = 0.2f;
+uniform float GRASS_REGROW_PROBABILITY = 0.0f;
+uniform float TREE_REGROW_PROBABILITY = 0.0f;
+
+uniform bool USE_TEMP = true;
+uniform bool USE_WIND = true;
 
 // ----------------------------------------------------------------------------
 //
@@ -103,6 +113,120 @@ float GetHeight(vec4 cellData)
     return cellData.z;
 }
 
+float CalculateTemperature()
+{
+    if (!USE_TEMP)
+    {
+        return 20.0f; // Default temperature if system is disabled
+    }
+
+    int hourOfDay = frameCounter % 24;
+    float average_temp = 20.0f;
+    float amplitude = 5.0f;
+
+    // Use sinusoidal pattern similar to C++ implementation
+    float temp = average_temp + amplitude * sin(2.0 * 3.14159265 * float(hourOfDay) / 24.0 - 3.14159265 / 2.0);
+
+    // Add some noise
+    temp += (random(vec2(hourOfDay, frameCounter)) - 0.5) * 2.0;
+
+    return temp;
+}
+
+// mouse fire spawn
+bool IsImpactedByMouse(vec2 coord, inout vec4 cellData)
+{
+    if (mouseDown == true)
+    {
+        ivec2 computeSize = ivec2(gl_NumWorkGroups.xy);
+        vec2 fireCenter = computeSize * mousePos;
+
+        float distance = length(fireCenter - coord);
+
+        if (distance < 10)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+float GetWindSpreadProb(vec2 coord)
+{
+    float prob = 0.0;
+
+    vec2 windDirection = vec2(0, 0);
+
+    if (windDirectionIndex == 1)
+    {
+        // east
+        windDirection = vec2(1, 0);
+    }
+    else if (windDirectionIndex == 2)
+    {
+        // west
+        windDirection = vec2(-1, 0);
+    }
+    else if (windDirectionIndex == 3)
+    {
+        // north
+        windDirection = vec2(0, 1);
+    }
+    else if (windDirectionIndex == 4)
+    {
+        // south
+        windDirection = vec2(0, -1);
+    }
+    else if (windDirectionIndex == 5)
+    {
+        // northeast
+        windDirection = vec2(1, 1);
+    }
+    else if (windDirectionIndex == 6)
+    {
+        // northwest
+        windDirection = vec2(-1, 1);
+    }
+    else if (windDirectionIndex == 7)
+    {
+        // southeast
+        windDirection = vec2(1, -1);
+    }
+    else if (windDirectionIndex == 8)
+    {
+        windDirection = vec2(-1, -1);
+    }
+
+    for (int i = -1; i <= 1; i++)
+    {
+        for (int j = -1; j <= 1; j++)
+        {
+            if (i == 0 && j == 0) continue;
+
+            vec2 neighborOffset = vec2(i, j);
+            vec4 otherCellData = GetCellData(coord + vec2(i, j));
+            int otherCellState = GetState(otherCellData);
+
+            if (otherCellState == STATE_ON_FIRE)
+            {
+                if (windDirectionIndex == 0)
+                {
+                    return 1.0 / 8 / 2;
+                }
+
+                // Compute the dot product to check alignment with the wind
+                float windInfluence = max(0.0, dot(normalize(-neighborOffset), windDirection));
+
+                // Increase probability based on wind influence
+                prob += (0.1 + 0.9 * windInfluence) / 8;
+            }
+        }
+    }
+
+    return prob;
+}
+
 // Process a single cell
 void processCell(vec2 coord, inout vec4 cellData)
 {
@@ -118,35 +242,18 @@ void processCell(vec2 coord, inout vec4 cellData)
             float newTreeProb = random(coord);
             if (regrowTreeProb > newTreeProb)
             {
-                SetMaterial(cellData, MATERIAL_TREE);
+                SetMaterial(cellData, MATERIAL_TREE_1);
                 return;
             }
         }
 
-        bool neighborOnFire = false;
+        float windSpreadThreshold = GetWindSpreadProb(coord);
 
-        for (int i = -1; i <= 1; i++)
-        {
-            for (int j = -1; j <= 1; j++)
-            {
-                if (i == 0 && j == 0)
-                {
-                    continue;
-                }
-
-                vec4 otherCellData = GetCellData(coord + vec2(i, j));
-                int otherCellState = GetState(otherCellData);
-
-                if (otherCellState == STATE_ON_FIRE)
-                {
-                    neighborOnFire = true;
-                }
-            }
-        }
+        float windSpreadProb = random(coord + vec2(1, 1));
 
         float fireCatchProb = random(coord);
 
-        if (neighborOnFire || FIRE_PROB > fireCatchProb)
+        if (windSpreadThreshold > windSpreadProb || FIRE_PROB > fireCatchProb || IsImpactedByMouse(coord, cellData))
         {
             float flammableProb = 0.0f;
             if (cellMaterial == MATERIAL_GRASS)
@@ -161,21 +268,33 @@ void processCell(vec2 coord, inout vec4 cellData)
             {
                 flammableProb = FLAMMABLE_PROBABILITY_FOR_BEDROCK;
             }
-            else if (cellMaterial == MATERIAL_TREE)
+            else if (cellMaterial == MATERIAL_TREE_1 || cellMaterial == MATERIAL_TREE_2 || cellMaterial == MATERIAL_TREE_3)
             {
                 flammableProb = FLAMMABLE_PROBABILITY_FOR_TREE;
             }
 
             float randomProb = random(coord);
+
+            float currentTemperature = CalculateTemperature();
+            bool isHot = currentTemperature > 25.0f;
+            if (isHot)
+            {
+                randomProb *= 2;
+            }
+
             if (flammableProb > randomProb)
             {
                 SetState(cellData, STATE_ON_FIRE);
             }
         }
-    } 
+    }
     else if (cellState == STATE_ON_FIRE)
     {
-        SetState(cellData, STATE_DESTROYED);
+        float randomProb = random(coord);
+        if (randomProb < 0.01f)
+        {
+            SetState(cellData, STATE_DESTROYED);
+        }
     }
     else if (cellState == STATE_DESTROYED)
     {
@@ -187,7 +306,7 @@ void processCell(vec2 coord, inout vec4 cellData)
             SetMaterial(cellData, MATERIAL_GRASS);
         }
     }
-    
+
 }
 
 // Main function
