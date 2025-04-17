@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include <random>
 #include "Model.h"
 
 #include <vector>
@@ -576,7 +577,11 @@ int main()
                 heightValue += HEIGHT_DISPLACEMENT;
 
                 // Set the location.
-                glm::vec3 newLocation = glm::vec3(PIXEL_X - (WILDFIRE_WIDTH / 2.f), heightValue, PIXEL_Y - (WILDFIRE_WIDTH / 2.f));
+                std::random_device rd;                           // Seed source
+                std::mt19937 gen(rd());                          // Mersenne Twister RNG
+                std::uniform_real_distribution<float> dist(-5.0f, 5.0f);  // Range [0.0, 1.0)
+
+                glm::vec3 newLocation = glm::vec3(PIXEL_X - (WILDFIRE_WIDTH / 2.f) + dist(gen), heightValue, PIXEL_Y - (WILDFIRE_WIDTH / 2.f) + dist(gen));
 
                 treeModelMatrices[tree_model_index] = glm::translate(treeModelMatrices[tree_model_index], newLocation);
 
