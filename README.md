@@ -1,10 +1,10 @@
-Example of writing to a 3d texture in a compute shader and reading from fragment shader. The compute shader writes to a 128x128x128 texture the rgb corresponding to the coordinates and the fragment shader renders every XY layer and goes through the Z axis when time passes.
+#Wildfire Simulation
+##Introduction
+Using compute shaders and OpenGL, we implemented a new 3D wildfire simulation program. Using source landscape and heightmap textures, we read from the textures to generate and render the terrain mesh using tessellation.
 
-Clone the repo and open the .sln file and press the play button and I think it should work.
+Mesh instancing is then used to render the thousands of tree instances.
 
-Useful Things to Read:
-https://learnopengl.com/Guest-Articles/2022/Compute-Shaders/Introduction
-https://learnopengl.com/Getting-started/Textures
+With the compute shader, we simulate the movement of wild fire via wind and different tree species.
 
-What it looks like:
-https://gyazo.com/a6b5f4d639566e2fe31df08d99ca35d1
+##Demo Video
+https://www.youtube.com/watch?v=e9ExoZol7Qo
