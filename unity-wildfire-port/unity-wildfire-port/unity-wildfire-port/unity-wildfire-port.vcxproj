@@ -139,31 +139,21 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\imgui\imgui.cpp" />
-    <ClCompile Include="..\..\imgui\imgui_demo.cpp" />
-    <ClCompile Include="..\..\imgui\imgui_draw.cpp" />
-    <ClCompile Include="..\..\imgui\imgui_impl_glfw.cpp" />
-    <ClCompile Include="..\..\imgui\imgui_impl_opengl3.cpp" />
-    <ClCompile Include="..\..\imgui\imgui_tables.cpp" />
-    <ClCompile Include="..\..\imgui\imgui_widgets.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="model_loading.frag">
+    <None Include="Shaders\treeModel.frag">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </None>
-    <None Include="model_loading.vs" />
-    <None Include="gpuheight.frag">
+    <None Include="Shaders\treeModel.vs" />
+    <None Include="Shaders\terrainMesh.frag">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </None>
-    <None Include="gpuheight.vs" />
-    <None Include="computeShader.cs" />
-    <None Include="screenQuad.fs" />
-    <None Include="screenQuad.vs" />
-    <None Include="gpuheight.tcs" />
-    <None Include="gpuheight.tes" />
-    <None Include="wildfireCompute.cs" />
+    <None Include="Shaders\terrainMesh.vs" />
+    <None Include="Shaders\terrainMesh.tcs" />
+    <None Include="Shaders\terrainMesh.tes" />
+    <None Include="Shaders\wildfireCompute.cs" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="HeightMaps\GreatLakeHeightmap.png" />

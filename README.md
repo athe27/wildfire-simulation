@@ -1,13 +1,10 @@
-Example of writing to a 3d texture in a compute shader and reading from fragment shader. The compute shader writes to a 128x128x128 texture the rgb corresponding to the coordinates and the fragment shader renders every XY layer and goes through the Z axis when time passes.
+# Wildfire Simulation
+## Introduction
+Using compute shaders and OpenGL, we implemented a new 3D wildfire simulation program. Using source landscape and heightmap textures, we read from the textures to generate and render the terrain mesh using tessellation.
 
-Clone the repo and open the .sln file and press the play button and I think it should work.
+Mesh instancing is then used to render the thousands of tree instances.
 
-Useful Things to Read:
-https://learnopengl.com/Guest-Articles/2022/Compute-Shaders/Introduction
-https://learnopengl.com/Getting-started/Textures
-
-What it looks like:
-https://gyazo.com/a6b5f4d639566e2fe31df08d99ca35d1
+With the compute shader, we simulate the movement of wild fire via wind and different tree species.
 
 ## Wildfire Compute Shader
 
@@ -20,3 +17,6 @@ bool IsImpactedByMouse(vec2 coord, inout vec4 cellData): Checks if user clicked 
 float GetWindSpreadProb(vec2 coord): Performs dot product with direction of fire and wind direction to get fire spread probability
 
 void processCell(vec2 coord, inout vec4 cellData): Puts everything together and makes sure the right probability coefficients are used for cells catching on fire.
+
+## Demo Video
+https://www.youtube.com/watch?v=e9ExoZol7Qo
