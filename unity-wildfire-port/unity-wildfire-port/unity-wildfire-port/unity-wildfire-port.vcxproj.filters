@@ -21,53 +21,23 @@
     <ClCompile Include="glad.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\imgui\imgui.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\imgui\imgui_demo.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\imgui\imgui_draw.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\imgui\imgui_impl_glfw.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\imgui\imgui_impl_opengl3.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\imgui\imgui_tables.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\imgui\imgui_widgets.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="computeShader.cs">
+    <None Include="Shaders\wildfireCompute.cs" />
+    <None Include="Shaders\terrainMesh.tcs">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="screenQuad.vs">
+    <None Include="Shaders\terrainMesh.tes">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="screenQuad.fs">
+    <None Include="Shaders\terrainMesh.vs">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="wildfireCompute.cs" />
-    <None Include="gpuheight.tcs">
+    <None Include="Shaders\terrainMesh.frag">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="gpuheight.tes">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="gpuheight.vs">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="gpuheight.frag">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="model_loading.vs" />
-    <None Include="model_loading.frag" />
+    <None Include="Shaders\treeModel.vs" />
+    <None Include="Shaders\treeModel.frag" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="HeightMaps\GreatLakeHeightmap.png">
